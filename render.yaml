@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: blog-generator
+    runtime: node
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    envVars:
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash-lite
+      - key: NODE_ENV
+        value: production
