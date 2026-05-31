@@ -3,8 +3,19 @@ const express = require('express');
 const multer = require('multer');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const path = require('path');
+const fs = require('fs');
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
+
+let STYLE_SAMPLES = '';
+try {
+  const raw = fs.readFileSync(path.join(__dirname, 'style-samples.txt'), 'utf-8').trim();
+  // 안내 헤더와 빈 예시 placeholder는 제외하고 실제 글만 추출
+  const blocks = raw.split('=====').map(b => b.trim()).filter(b => b && !b.startsWith('아래 글들을') && !b.startsWith('(여기에'));
+  if (blocks.length > 0) STYLE_SAMPLES = blocks.join('\n\n=====\n\n');
+} catch {
+  // 파일 없으면 무시
+}
 console.log(`[config] Gemini 모델: ${GEMINI_MODEL}`);
 
 const app = express();
@@ -208,7 +219,11 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
     const photoBlock = photoDescriptions.map((p) => `[사진${p.index}] ${p.desc}`).join('\n\n');
     const memoBlock = memo ? `\n[반드시 포함할 내용 - 사용자가 직접 지정]\n${memo}\n` : '';
 
-    const prompt = `${STYLE_GUIDE}
+    const samplesSection = STYLE_SAMPLES
+      ? `\n\n[참고할 실제 블로그 글 예시 - 아래 글들의 문체·어투·구성 방식을 그대로 따라하세요]\n\n${STYLE_SAMPLES}\n\n---`
+      : '';
+
+    const prompt = `${STYLE_GUIDE}${samplesSection}
 
 ---
 
