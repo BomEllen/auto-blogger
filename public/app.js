@@ -7,6 +7,36 @@ let rawBodyText = '';
 let dragSrcIndex = null;
 let lightboxObjectUrl = null;
 let modalResolve = null;
+const thumbnailCache = new Map(); // File -> blob URL
+
+function getThumbnailUrl(file) {
+  if (thumbnailCache.has(file)) return Promise.resolve(thumbnailCache.get(file));
+  return new Promise((resolve) => {
+    const img = new Image();
+    const objUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objUrl);
+      const maxDim = 300;
+      const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.naturalWidth * scale);
+      canvas.height = Math.round(img.naturalHeight * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        thumbnailCache.set(file, url);
+        resolve(url);
+      }, 'image/jpeg', 0.75);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objUrl);
+      const fallback = URL.createObjectURL(file);
+      thumbnailCache.set(file, fallback);
+      resolve(fallback);
+    };
+    img.src = objUrl;
+  });
+}
 
 /* ── DOM ── */
 const apiCard         = document.getElementById('apiCard');
@@ -270,7 +300,12 @@ uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.
 uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
 uploadZone.addEventListener('drop', (e) => { e.preventDefault(); uploadZone.classList.remove('drag-over'); addPhotos(Array.from(e.dataTransfer.files)); });
 photoInput.addEventListener('change', () => { addPhotos(Array.from(photoInput.files)); photoInput.value = ''; });
-document.getElementById('clearPhotos').addEventListener('click', () => { selectedPhotos = []; renderPhotoGrid(); });
+document.getElementById('clearPhotos').addEventListener('click', () => {
+  selectedPhotos.forEach((f) => { const u = thumbnailCache.get(f); if (u) URL.revokeObjectURL(u); });
+  thumbnailCache.clear();
+  selectedPhotos = [];
+  renderPhotoGrid();
+});
 
 function addPhotos(files) {
   const imgs = files.filter((f) => f.type.startsWith('image/'));
@@ -279,15 +314,20 @@ function addPhotos(files) {
 }
 
 function deletePhoto(index) {
+  const file = selectedPhotos[index];
+  const url = thumbnailCache.get(file);
+  if (url) { URL.revokeObjectURL(url); thumbnailCache.delete(file); }
   selectedPhotos.splice(index, 1);
   renderPhotoGrid();
 }
 
-function renderPhotoGrid() {
+async function renderPhotoGrid() {
   photoGrid.innerHTML = '';
   const n = selectedPhotos.length;
   photoCountEl.textContent = `${n}장 선택됨`;
   photoCountEl.className = 'photo-count-text' + (n >= 30 ? ' count-good' : n > 0 ? ' count-warn' : '');
+
+  const thumbUrls = await Promise.all(selectedPhotos.map((f) => getThumbnailUrl(f)));
 
   selectedPhotos.forEach((file, i) => {
     const thumb = document.createElement('div');
@@ -300,9 +340,8 @@ function renderPhotoGrid() {
     num.textContent = i + 1;
 
     const img = document.createElement('img');
-    img.src = URL.createObjectURL(file);
+    img.src = thumbUrls[i];
     img.draggable = false;
-    img.onload = () => URL.revokeObjectURL(img.src);
 
     const delBtn = document.createElement('button');
     delBtn.className = 'thumb-del';
@@ -310,7 +349,7 @@ function renderPhotoGrid() {
     delBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>`;
     delBtn.addEventListener('click', (e) => { e.stopPropagation(); deletePhoto(i); });
 
-    // 클릭 → 라이트박스
+    // 클릭 → 라이트박스 (원본 해상도 유지)
     thumb.addEventListener('click', () => openLightbox(file, i + 1));
 
     // 드래그 순서 변경

@@ -51,7 +51,9 @@ const STYLE_GUIDE = `
 2. 목차를 본문 앞에 넣으세요 (🌲 이모지, 섹션 번호 포함).
 3. 기본 정보 박스(📍⏰🚗📶)를 목차 아래에 넣으세요.
 4. 섹션별로 나누어 글을 구성하고, 사진 설명을 본문에 자연스럽게 녹여 넣으세요.
-   사진 위치에 [사진1], [사진2] 마커를 삽입하고, 업로드된 순서 그대로 배치하세요.
+   사진 위치에 [사진1], [사진2] 마커를 삽입하세요.
+   ★ 사진 마커는 반드시 [사진1] → [사진2] → [사진3] … 순서 그대로, 건너뛰거나 순서를 바꾸지 말 것.
+   사진 내용이 글 흐름과 맞지 않더라도 순서 변경은 절대 금지. 사용자가 직접 정한 순서입니다.
 5. 본문 마지막에 총평을 쓰고, 마지막 줄에 입력받은 별점을 ⭐ X.X/5점 형태로 표기하세요.
 6. 글 분량: 1800~2500자.
 
@@ -225,6 +227,9 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
     const ratingNum = parseFloat(rating) || 4.5;
     const fieldInfo = buildCategoryInfoText(category, info);
     const photoBlock = photoDescriptions.map((p) => `[사진${p.index}] ${p.desc}`).join('\n\n');
+    const photoOrderNote = photos.length > 0
+      ? `\n[사진 순서 절대 준수]\n사진 마커는 [사진1]부터 [사진${photos.length}]까지 반드시 이 순서대로만 삽입하세요. 내용에 따라 순서를 바꾸는 것은 금지입니다.\n`
+      : '';
     const memoBlock = memo ? `\n[반드시 포함할 내용 - 사용자가 직접 지정]\n${memo}\n` : '';
 
     const samplesSection = STYLE_SAMPLES
@@ -241,8 +246,9 @@ ${fieldInfo}
 
 별점: ${ratingNum}점 / 5점
 ${memoBlock}
-[업로드된 사진 AI 분석 결과 - 총 ${photos.length}장]
+[업로드된 사진 AI 분석 결과 - 총 ${photos.length}장, 아래 번호 순서 그대로 본문에 배치]
 ${photoBlock}
+${photoOrderNote}
 
 ---
 
