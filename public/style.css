@@ -243,8 +243,9 @@ body {
 .api-error.hidden { display: none; }
 
 /* ── Main Steps ── */
-.main-steps { display: flex; flex-direction: column; gap: 16px; transition: opacity 0.3s; }
-.main-steps.locked { opacity: 0.28; pointer-events: none; }
+.main-steps { display: flex; flex-direction: column; gap: 16px; }
+.main-steps > *:not(.step-card-photos) { transition: opacity 0.3s; }
+.main-steps.locked > *:not(.step-card-photos) { opacity: 0.28; pointer-events: none; }
 
 /* ── Category Tabs ── */
 .category-tabs { display: flex; gap: 10px; }
