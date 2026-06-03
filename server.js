@@ -223,9 +223,21 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
   const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
   try {
-    const { category, rating, memo, ...info } = req.body;
+    const { category, rating, memo, sectionNames: rawSectionNames, sectionCounts: rawSectionCounts, ...info } = req.body;
     const photos = req.files || [];
     const categoryName = getCategoryName(category);
+
+    // 섹션별 사진 그룹 재구성
+    const sectionNames = JSON.parse(rawSectionNames || '[]');
+    const sectionCounts = JSON.parse(rawSectionCounts || '[]');
+    const sectionGroups = [];
+    let photoOffset = 0;
+    sectionNames.forEach((name, i) => {
+      const count = sectionCounts[i] || 0;
+      sectionGroups.push({ name, photos: photos.slice(photoOffset, photoOffset + count) });
+      photoOffset += count;
+    });
+    if (sectionGroups.length === 0) sectionGroups.push({ name: '전체', photos });
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const descModel = genAI.getGenerativeModel({ model: GEMINI_MODEL });
@@ -233,21 +245,26 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
 
     send({ type: 'status', message: `사진 ${photos.length}장 AI 분석 중...` });
 
+    // 사진 설명 — 섹션 정보 포함
     const photoDescriptions = [];
-    for (let i = 0; i < photos.length; i++) {
-      send({ type: 'progress', current: i + 1, total: photos.length });
-      try {
-        const result = await descModel.generateContent([
-          imagePart(photos[i]),
-          `이 사진을 보고 한국 라이프스타일 블로그용 사진 설명을 2~3문장으로 작성해주세요.
-장르: ${categoryName} 리뷰 블로그
+    let globalIdx = 1;
+    for (const group of sectionGroups) {
+      for (const photo of group.photos) {
+        send({ type: 'progress', current: globalIdx, total: photos.length });
+        try {
+          const result = await descModel.generateContent([
+            imagePart(photo),
+            `이 사진을 보고 한국 라이프스타일 블로그용 사진 설명을 2~3문장으로 작성해주세요.
+장르: ${categoryName} 리뷰 블로그 / 목차: ${group.name}
 말투: 해요체, 친근한 구어체
 사진에 보이는 것을 구체적으로 묘사하되 감성적 표현 포함
 설명만 작성하고 다른 말은 하지 마세요.`,
-        ]);
-        photoDescriptions.push({ index: i + 1, desc: result.response.text().trim() });
-      } catch {
-        photoDescriptions.push({ index: i + 1, desc: `${i + 1}번째 사진` });
+          ]);
+          photoDescriptions.push({ index: globalIdx, section: group.name, desc: result.response.text().trim() });
+        } catch {
+          photoDescriptions.push({ index: globalIdx, section: group.name, desc: `${globalIdx}번째 사진` });
+        }
+        globalIdx++;
       }
     }
 
@@ -255,7 +272,15 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
 
     const ratingNum = parseFloat(rating) || 4.5;
     const fieldInfo = buildCategoryInfoText(category, info);
-    const photoBlock = photoDescriptions.map((p) => `[사진${p.index}] ${p.desc}`).join('\n\n');
+
+    // 목차별로 사진 설명 그룹화
+    const photoBlockBySection = sectionGroups.map(group => {
+      const groupPhotos = photoDescriptions.filter(p => p.section === group.name);
+      if (groupPhotos.length === 0) return null;
+      return `[${group.name}]\n${groupPhotos.map(p => `[사진${p.index}] ${p.desc}`).join('\n\n')}`;
+    }).filter(Boolean).join('\n\n---\n\n');
+
+    const photoBlock = photoBlockBySection;
     const photoOrderNote = photos.length > 0
       ? `\n[사진 순서 절대 준수]\n사진 마커는 [사진1]부터 [사진${photos.length}]까지 반드시 이 순서대로만 삽입하세요. 내용에 따라 순서를 바꾸는 것은 금지입니다.\n`
       : '';
@@ -275,7 +300,7 @@ ${fieldInfo}
 
 별점: ${ratingNum}점 / 5점
 ${memoBlock}
-[업로드된 사진 AI 분석 결과 - 총 ${photos.length}장, 아래 번호 순서 그대로 본문에 배치]
+[업로드된 사진 AI 분석 결과 - 총 ${photos.length}장, 목차별 분류 / 각 목차의 사진을 해당 섹션 본문에 순서대로 배치]
 ${photoBlock}
 ${photoOrderNote}
 

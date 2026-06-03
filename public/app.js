@@ -1,13 +1,29 @@
 /* ── State ── */
 let selectedCategory = 'cafe';
 let selectedRating = 4.5;
-let selectedPhotos = [];
+let sections = []; // [{ name, photos: File[], fixed: boolean }]
 let connectedApiKey = '';
 let rawBodyText = '';
 let dragSrcIndex = null;
+let dragSrcSection = null;
 let lightboxObjectUrl = null;
 let modalResolve = null;
 const thumbnailCache = new Map(); // File -> blob URL
+
+const CATEGORY_SECTIONS = {
+  cafe:          ['외관 및 주차 정보', '메뉴', '내부 인테리어 & 분위기', '메뉴 리뷰', '총평'],
+  restaurant:    ['가게 위치 및 외관', '메뉴판 및 주문 메뉴', '매장 내부 및 편의시설', '솔직 후기'],
+  accommodation: ['위치 및 체크인/로비', '객실 내부', '부대시설', '총평'],
+  etc:           [],
+};
+
+function initSections(category) {
+  sections.forEach(s => s.photos.forEach(f => {
+    const u = thumbnailCache.get(f);
+    if (u) { URL.revokeObjectURL(u); thumbnailCache.delete(f); }
+  }));
+  sections = (CATEGORY_SECTIONS[category] || []).map(name => ({ name, photos: [], fixed: true }));
+}
 
 function getThumbnailUrl(file) {
   if (thumbnailCache.has(file)) return Promise.resolve(thumbnailCache.get(file));
@@ -150,8 +166,14 @@ catTabs.forEach((tab) => {
     Object.entries(fieldGroups).forEach(([cat, el]) =>
       el.classList.toggle('hidden', cat !== selectedCategory)
     );
+    initSections(selectedCategory);
+    renderSections();
   });
 });
+
+// 초기 섹션 렌더
+initSections(selectedCategory);
+renderSections();
 
 /* ─────────────────────────────────────────
    별점
@@ -288,48 +310,146 @@ function fillFields(data) {
 }
 
 /* ─────────────────────────────────────────
-   리뷰 사진
+   STEP 3: 목차별 사진 업로드
 ───────────────────────────────────────── */
-const uploadZone   = document.getElementById('uploadZone');
-const photoInput   = document.getElementById('photoInput');
-const photoGrid    = document.getElementById('photoGrid');
-const photoCountEl = document.getElementById('photoCount');
+const sectionsContainer = document.getElementById('sectionsContainer');
+const addSectionBtn     = document.getElementById('addSectionBtn');
 
-uploadZone.addEventListener('click', () => photoInput.click());
-uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
-uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
-uploadZone.addEventListener('drop', (e) => { e.preventDefault(); uploadZone.classList.remove('drag-over'); addPhotos(Array.from(e.dataTransfer.files)); });
-photoInput.addEventListener('change', () => { addPhotos(Array.from(photoInput.files)); photoInput.value = ''; });
-document.getElementById('clearPhotos').addEventListener('click', () => {
-  selectedPhotos.forEach((f) => { const u = thumbnailCache.get(f); if (u) URL.revokeObjectURL(u); });
-  thumbnailCache.clear();
-  selectedPhotos = [];
-  renderPhotoGrid();
+addSectionBtn.addEventListener('click', () => {
+  sections.push({ name: '', photos: [], fixed: false });
+  renderSections();
 });
 
-function addPhotos(files) {
-  const imgs = files.filter((f) => f.type.startsWith('image/'));
-  selectedPhotos.push(...imgs.slice(0, 60 - selectedPhotos.length));
-  renderPhotoGrid();
+function getGlobalPhotoIndex(sectionIdx, localIdx) {
+  let offset = 0;
+  for (let i = 0; i < sectionIdx; i++) offset += sections[i].photos.length;
+  return offset + localIdx + 1;
 }
 
-function deletePhoto(index) {
-  const file = selectedPhotos[index];
+function addPhotosToSection(sectionIdx, files) {
+  const imgs = files.filter(f => f.type.startsWith('image/'));
+  const sec = sections[sectionIdx];
+  sec.photos.push(...imgs.slice(0, 60 - sec.photos.length));
+  renderSectionGrid(sectionIdx);
+}
+
+function deletePhotoFromSection(sectionIdx, photoIdx) {
+  const file = sections[sectionIdx].photos[photoIdx];
   const url = thumbnailCache.get(file);
   if (url) { URL.revokeObjectURL(url); thumbnailCache.delete(file); }
-  selectedPhotos.splice(index, 1);
-  renderPhotoGrid();
+  sections[sectionIdx].photos.splice(photoIdx, 1);
+  renderSectionGrid(sectionIdx);
 }
 
-async function renderPhotoGrid() {
-  photoGrid.innerHTML = '';
-  const n = selectedPhotos.length;
-  photoCountEl.textContent = `${n}장 선택됨`;
-  photoCountEl.className = 'photo-count-text' + (n >= 30 ? ' count-good' : n > 0 ? ' count-warn' : '');
+function buildSectionCard(section, idx) {
+  const card = document.createElement('div');
+  card.className = 'section-card';
 
-  const thumbUrls = await Promise.all(selectedPhotos.map((f) => getThumbnailUrl(f)));
+  // 헤더
+  const header = document.createElement('div');
+  header.className = 'section-card-header';
 
-  selectedPhotos.forEach((file, i) => {
+  if (section.fixed) {
+    const title = document.createElement('span');
+    title.className = 'section-title';
+    title.textContent = `${idx + 1}. ${section.name}`;
+    header.appendChild(title);
+  } else {
+    const input = document.createElement('input');
+    input.className = 'section-title-input';
+    input.type = 'text';
+    input.placeholder = '목차 이름 입력';
+    input.value = section.name;
+    input.addEventListener('input', () => { section.name = input.value; });
+    header.appendChild(input);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'btn-remove-section';
+    removeBtn.title = '목차 삭제';
+    removeBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>`;
+    removeBtn.addEventListener('click', () => {
+      section.photos.forEach(f => { const u = thumbnailCache.get(f); if (u) { URL.revokeObjectURL(u); thumbnailCache.delete(f); } });
+      sections.splice(idx, 1);
+      renderSections();
+    });
+    header.appendChild(removeBtn);
+  }
+
+  const countBadge = document.createElement('span');
+  countBadge.className = 'section-count';
+  countBadge.id = `secBadge_${idx}`;
+  countBadge.textContent = `${section.photos.length}장`;
+  header.appendChild(countBadge);
+  card.appendChild(header);
+
+  // 업로드 존
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file'; fileInput.multiple = true; fileInput.accept = 'image/*'; fileInput.hidden = true;
+
+  const zone = document.createElement('div');
+  zone.className = 'section-upload-zone';
+  zone.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="20" height="20" style="display:block;margin:0 auto 6px"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>클릭하거나 드래그해서 사진 추가`;
+  zone.appendChild(fileInput);
+  zone.addEventListener('click', () => fileInput.click());
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('drag-over'); addPhotosToSection(idx, Array.from(e.dataTransfer.files)); });
+  fileInput.addEventListener('change', () => { addPhotosToSection(idx, Array.from(fileInput.files)); fileInput.value = ''; });
+  card.appendChild(zone);
+
+  // 카운트 바
+  const bar = document.createElement('div');
+  bar.className = 'section-photo-bar';
+  const countText = document.createElement('span');
+  countText.className = 'section-count-text';
+  countText.id = `secText_${idx}`;
+  countText.textContent = `${section.photos.length}장 선택됨`;
+  const clearBtn = document.createElement('button');
+  clearBtn.className = 'btn-text-danger';
+  clearBtn.textContent = '모두 지우기';
+  clearBtn.addEventListener('click', () => {
+    section.photos.forEach(f => { const u = thumbnailCache.get(f); if (u) { URL.revokeObjectURL(u); thumbnailCache.delete(f); } });
+    section.photos = [];
+    renderSectionGrid(idx);
+  });
+  bar.append(countText, clearBtn);
+  card.appendChild(bar);
+
+  // 사진 그리드
+  const grid = document.createElement('div');
+  grid.className = 'section-photo-grid';
+  grid.dataset.sectionIndex = idx;
+  card.appendChild(grid);
+
+  return card;
+}
+
+function renderSections() {
+  sectionsContainer.innerHTML = '';
+  sections.forEach((sec, idx) => sectionsContainer.appendChild(buildSectionCard(sec, idx)));
+  sections.forEach((_, idx) => renderSectionGrid(idx));
+}
+
+async function renderSectionGrid(sectionIdx) {
+  const section = sections[sectionIdx];
+  if (!section) return;
+  const grid = sectionsContainer.querySelector(`.section-photo-grid[data-section-index="${sectionIdx}"]`);
+  if (!grid) return;
+
+  const n = section.photos.length;
+  const badge = document.getElementById(`secBadge_${sectionIdx}`);
+  const textEl = document.getElementById(`secText_${sectionIdx}`);
+  if (badge) badge.textContent = `${n}장`;
+  if (textEl) textEl.textContent = `${n}장 선택됨`;
+
+  grid.innerHTML = '';
+  if (n === 0) return;
+
+  const thumbUrls = await Promise.all(section.photos.map(f => getThumbnailUrl(f)));
+
+  section.photos.forEach((file, i) => {
+    const globalNum = getGlobalPhotoIndex(sectionIdx, i);
+
     const thumb = document.createElement('div');
     thumb.className = 'photo-thumb';
     thumb.draggable = true;
@@ -337,7 +457,7 @@ async function renderPhotoGrid() {
 
     const num = document.createElement('span');
     num.className = 'thumb-num';
-    num.textContent = i + 1;
+    num.textContent = globalNum;
 
     const img = document.createElement('img');
     img.src = thumbUrls[i];
@@ -347,37 +467,31 @@ async function renderPhotoGrid() {
     delBtn.className = 'thumb-del';
     delBtn.title = '삭제';
     delBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>`;
-    delBtn.addEventListener('click', (e) => { e.stopPropagation(); deletePhoto(i); });
+    delBtn.addEventListener('click', (e) => { e.stopPropagation(); deletePhotoFromSection(sectionIdx, i); });
 
-    // 클릭 → 라이트박스 (원본 해상도 유지)
-    thumb.addEventListener('click', () => openLightbox(file, i + 1));
+    thumb.addEventListener('click', () => openLightbox(file, globalNum));
 
-    // 드래그 순서 변경
     thumb.addEventListener('dragstart', (e) => {
-      dragSrcIndex = i;
+      dragSrcSection = sectionIdx; dragSrcIndex = i;
       e.dataTransfer.effectAllowed = 'move';
       setTimeout(() => thumb.classList.add('dragging'), 0);
     });
     thumb.addEventListener('dragend', () => thumb.classList.remove('dragging'));
-    thumb.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      thumb.classList.add('drag-over-thumb');
-    });
+    thumb.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; thumb.classList.add('drag-over-thumb'); });
     thumb.addEventListener('dragleave', () => thumb.classList.remove('drag-over-thumb'));
     thumb.addEventListener('drop', (e) => {
       e.preventDefault();
       thumb.classList.remove('drag-over-thumb');
-      if (dragSrcIndex !== null && dragSrcIndex !== i) {
-        const [dragged] = selectedPhotos.splice(dragSrcIndex, 1);
-        selectedPhotos.splice(i, 0, dragged);
-        dragSrcIndex = null;
-        renderPhotoGrid();
+      if (dragSrcSection === sectionIdx && dragSrcIndex !== null && dragSrcIndex !== i) {
+        const [dragged] = section.photos.splice(dragSrcIndex, 1);
+        section.photos.splice(i, 0, dragged);
+        dragSrcIndex = null; dragSrcSection = null;
+        renderSectionGrid(sectionIdx);
       }
     });
 
     thumb.append(img, num, delBtn);
-    photoGrid.appendChild(thumb);
+    grid.appendChild(thumb);
   });
 }
 
@@ -508,9 +622,10 @@ function buildBodyHtml(rawBody) {
 document.getElementById('generateBtn').addEventListener('click', async () => {
   const info = collectFormData();
   if (!info.name || !info.location) { await showAlert('장소명과 위치는 필수 입력 항목이에요!'); return; }
-  if (selectedPhotos.length === 0) { await showAlert('리뷰 사진을 최소 1장 이상 업로드해주세요!'); return; }
-  if (selectedPhotos.length < 30) {
-    const ok = await showConfirm(`현재 ${selectedPhotos.length}장 업로드됐어요.\n30장 이상이면 더 풍성한 글이 완성돼요.\n그래도 진행할까요?`);
+  const totalPhotos = sections.reduce((sum, s) => sum + s.photos.length, 0);
+  if (totalPhotos === 0) { await showAlert('리뷰 사진을 최소 1장 이상 업로드해주세요!'); return; }
+  if (totalPhotos < 30) {
+    const ok = await showConfirm(`현재 총 ${totalPhotos}장 업로드됐어요.\n30장 이상이면 더 풍성한 글이 완성돼요.\n그래도 진행할까요?`);
     if (!ok) return;
   }
 
@@ -535,7 +650,10 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
   fd.append('rating', selectedRating);
   if (memo) fd.append('memo', memo);
   Object.entries(info).forEach(([k, v]) => fd.append(k, v));
-  selectedPhotos.forEach((f) => fd.append('photos', f));
+  const validSections = sections.filter(s => s.photos.length > 0);
+  fd.append('sectionNames', JSON.stringify(validSections.map(s => s.name || '기타')));
+  fd.append('sectionCounts', JSON.stringify(validSections.map(s => s.photos.length)));
+  validSections.forEach(s => s.photos.forEach(f => fd.append('photos', f)));
 
   try {
     const resp = await fetch('/api/generate', {
