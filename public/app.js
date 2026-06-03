@@ -609,7 +609,7 @@ function showResult(r, resultCard) {
     chip.className = 'tag-chip';
     chip.textContent = tag;
     chip.title = '클릭하면 복사';
-    chip.addEventListener('click', () => copyText(tag, `${tag} 태그가`));
+    chip.addEventListener('click', () => copyText(tag.replace(/^#/, ''), `${tag} 태그가`));
     tagsBox.appendChild(chip);
   });
 

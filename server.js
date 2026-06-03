@@ -115,6 +115,34 @@ function parseBlogResponse(text) {
   };
 }
 
+function validateBlogOutput(parsed, photoCount) {
+  const violations = [];
+
+  // 사진 마커 순서 검증
+  const markers = [...(parsed.body || '').matchAll(/\[사진(\d+)\]/g)].map((m) => parseInt(m[1]));
+  for (let i = 0; i < markers.length - 1; i++) {
+    if (markers[i] >= markers[i + 1]) {
+      violations.push(`사진 마커 순서 위반 (${markers.join('→')}) — [사진1]부터 오름차순으로`);
+      break;
+    }
+  }
+
+  // 기본 정보 박스 존재 여부 (📍가 없으면 기본 정보 박스 누락)
+  if (!(parsed.body || '').includes('📍')) {
+    violations.push('기본 정보 박스(📍⏰🚗📶) 누락 — 목차 아래에 반드시 포함');
+  }
+
+  // 이모지 수 검증 (기본 박스 📍⏰🚗📶 + 목차 🌲 + 별점 ⭐ 제외 후 3개 초과 여부)
+  const allEmoji = (parsed.body || '').match(/\p{Emoji_Presentation}|\p{Extended_Pictographic}/gu) || [];
+  const fixedEmoji = (parsed.body || '').match(/[📍⏰🚗📶🌲⭐]/gu) || [];
+  const freeEmoji = allEmoji.length - fixedEmoji.length;
+  if (freeEmoji > 3) {
+    violations.push(`본문 이모지 ${freeEmoji}개 — 기본 정보 박스·목차·별점 제외 최대 3개`);
+  }
+
+  return violations;
+}
+
 function imagePart(file) {
   return { inlineData: { data: file.buffer.toString('base64'), mimeType: file.mimetype || 'image/jpeg' } };
 }
@@ -200,7 +228,8 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
     const categoryName = getCategoryName(category);
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+    const descModel = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+    const blogModel = genAI.getGenerativeModel({ model: GEMINI_MODEL, systemInstruction: STYLE_GUIDE });
 
     send({ type: 'status', message: `사진 ${photos.length}장 AI 분석 중...` });
 
@@ -208,7 +237,7 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
     for (let i = 0; i < photos.length; i++) {
       send({ type: 'progress', current: i + 1, total: photos.length });
       try {
-        const result = await model.generateContent([
+        const result = await descModel.generateContent([
           imagePart(photos[i]),
           `이 사진을 보고 한국 라이프스타일 블로그용 사진 설명을 2~3문장으로 작성해주세요.
 장르: ${categoryName} 리뷰 블로그
@@ -236,7 +265,7 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
       ? `\n\n[참고할 실제 블로그 글 예시 - 아래 글들의 문체·어투·구성 방식을 그대로 따라하세요]\n\n${STYLE_SAMPLES}\n\n---`
       : '';
 
-    const prompt = `${STYLE_GUIDE}${samplesSection}
+    const prompt = `${samplesSection}
 
 ---
 
@@ -254,6 +283,13 @@ ${photoOrderNote}
 
 별점 표기: 마지막 줄에 "⭐ ${ratingNum}/5점" 형태로.
 
+[출력 전 자기검증 — 아래 항목을 모두 확인한 뒤 출력하세요]
+✓ 사진 마커가 [사진1]→[사진2]→[사진3] 순서대로 등장하는가?
+✓ **굵게**, ##헤더, - 목록 등 마크다운 문법이 없는가?
+✓ 목차 아래 기본 정보 박스(📍위치 ⏰영업시간 🚗주차 📶편의시설)가 있는가?
+✓ 기본 정보 박스(📍⏰🚗📶)·목차(🌲)·별점(⭐) 외 이모지가 3개 이하인가?
+✓ 위 블로그 예시의 말투(해요체, ㅎㅎㅎ, 요렇게, ... 등)를 그대로 따랐는가?
+
 [출력 형식 - 반드시 이 태그만 사용, 태그 외 텍스트 없음]
 [TITLE]네이버 SEO 최적화 제목 (지역명+장소명+특징 키워드, 40자 이내)[/TITLE]
 [BODY]
@@ -264,8 +300,18 @@ ${photoOrderNote}
 해시태그 규칙: 정확히 10개, # 붙여서 공백으로 구분, 지역명+카테고리+특징 키워드 조합
 `;
 
-    const blogResult = await model.generateContent(prompt);
-    const parsed = parseBlogResponse(blogResult.response.text());
+    const blogResult = await blogModel.generateContent(prompt);
+    let parsed = parseBlogResponse(blogResult.response.text());
+
+    const violations = validateBlogOutput(parsed, photos.length);
+    if (violations.length > 0) {
+      console.log('[validate] 위반 감지:', violations);
+      send({ type: 'status', message: '규칙 검수 중 — 자동 수정...' });
+      const retryPrompt = `[규칙 위반 수정]\n다음 항목이 지켜지지 않았습니다:\n${violations.map((v) => `- ${v}`).join('\n')}\n\n위 항목만 고쳐서 전체 글을 다시 동일한 [TITLE][BODY][HASHTAGS] 형식으로 출력하세요.\n\n---\n\n${prompt}`;
+      const retryResult = await blogModel.generateContent(retryPrompt);
+      parsed = parseBlogResponse(retryResult.response.text());
+    }
+
     send({ type: 'complete', result: parsed });
     res.end();
   } catch (err) {
