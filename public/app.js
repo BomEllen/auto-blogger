@@ -171,9 +171,6 @@ catTabs.forEach((tab) => {
   });
 });
 
-// 초기 섹션 렌더
-initSections(selectedCategory);
-renderSections();
 
 /* ─────────────────────────────────────────
    별점
@@ -314,6 +311,10 @@ function fillFields(data) {
 ───────────────────────────────────────── */
 const sectionsContainer = document.getElementById('sectionsContainer');
 const addSectionBtn     = document.getElementById('addSectionBtn');
+
+// DOM 준비 후 초기 섹션 렌더
+initSections(selectedCategory);
+renderSections();
 
 addSectionBtn.addEventListener('click', () => {
   sections.push({ name: '', photos: [], fixed: false });
