@@ -62,6 +62,7 @@ const STYLE_GUIDE = `
    사진 내용이 글 흐름과 맞지 않더라도 순서 변경은 절대 금지. 사용자가 직접 정한 순서입니다.
 5. 본문 마지막에 총평을 쓰고, 마지막 줄에 입력받은 별점을 ⭐ X.X/5점 형태로 표기하세요.
 6. 글 분량: 1800~2500자.
+7. 사진 1장당 한글 공백포함 100~200자 사이의 코멘트로 작성하세요. 
 
 [★ 중복 표현 방지 및 단어 다양화 규칙]
 - 특정 공간 묘사 단어 도배 금지: '빈티지', '아늑한', '편안한', '따뜻한', '콘크리트', '우드/원목' 같은 단어는 글 전체를 통틀어 각각 최대 2회까지만 사용할 수 있습니다.
@@ -79,7 +80,7 @@ const STYLE_GUIDE = `
 - 실제로 다녀온 사람처럼 솔직하고 담백하게 마무리
 - 재방문 의사는 솔직하게 표현하되 과장하지 않음
 
-[절대 하지 말 것]
+[절대절대절대 하지 말 것!!!!!! - 반드시 지키세요.]
 - 인위적인 특정 단어 사용 금지: '물씬', '어우러져', '연출해주다', '자아내다', '자리를 잡다', '선사하다'는 절대 사용하지 마세요.
 - 책 읽는 듯한 설명조 금지: "~자아내네요", "~선사할 것 같아요", "~엿볼 수 있고", "조화를 이루고" 같은 문학소설이나 안내문 같은 어조는 '절대' 사용 금지.
 - 마케팅 문구 금지: "합리적인 가격", "최고의 퀄리티" 등 홍보성 문구
@@ -260,57 +261,36 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
     if (sectionGroups.length === 0) sectionGroups.push({ name: '전체', photos });
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const descModel = genAI.getGenerativeModel({ model: GEMINI_MODEL });
     const blogModel = genAI.getGenerativeModel({ model: GEMINI_MODEL, systemInstruction: STYLE_GUIDE });
-
-    send({ type: 'status', message: `사진 ${photos.length}장 AI 분석 중...` });
-
-    // 사진 설명 — 섹션 정보 포함
-    const photoDescriptions = [];
-    let globalIdx = 1;
-    for (const group of sectionGroups) {
-      for (const photo of group.photos) {
-        send({ type: 'progress', current: globalIdx, total: photos.length });
-        try {
-          const result = await descModel.generateContent([
-            imagePart(photo),
-            `이 사진을 보고 한국 라이프스타일 블로그용 사진 설명을 2~3문장으로 작성해주세요.
-장르: ${categoryName} 리뷰 블로그 / 목차: ${group.name}
-말투: 해요체, 친근한 구어체
-사진에 보이는 것을 구체적으로 묘사하되 감성적 표현 포함
-설명만 작성하고 다른 말은 하지 마세요.`,
-          ]);
-          photoDescriptions.push({ index: globalIdx, section: group.name, desc: result.response.text().trim() });
-        } catch {
-          photoDescriptions.push({ index: globalIdx, section: group.name, desc: `${globalIdx}번째 사진` });
-        }
-        globalIdx++;
-      }
-    }
 
     send({ type: 'status', message: '블로그 글 작성 중...' });
 
     const ratingNum = parseFloat(rating) || 4.5;
     const fieldInfo = buildCategoryInfoText(category, info);
-
-    // 목차별로 사진 설명 그룹화
-    const photoBlockBySection = sectionGroups.map(group => {
-      const groupPhotos = photoDescriptions.filter(p => p.section === group.name);
-      if (groupPhotos.length === 0) return null;
-      return `[${group.name}]\n${groupPhotos.map(p => `[사진${p.index}] ${p.desc}`).join('\n\n')}`;
-    }).filter(Boolean).join('\n\n---\n\n');
-
-    const photoBlock = photoBlockBySection;
-    const photoOrderNote = photos.length > 0
-      ? `\n[사진 순서 절대 준수]\n사진 마커는 [사진1]부터 [사진${photos.length}]까지 반드시 이 순서대로만 삽입하세요. 내용에 따라 순서를 바꾸는 것은 금지입니다.\n`
-      : '';
     const memoBlock = memo ? `\n[반드시 포함할 내용 - 사용자가 직접 지정]\n${memo}\n` : '';
+    const photoOrderNote = photos.length > 0
+      ? `\n[사진 순서 절대 준수] 사진 마커는 [사진1]부터 [사진${photos.length}]까지 반드시 이 순서대로만 삽입하세요.\n`
+      : '';
 
     const samplesSection = STYLE_SAMPLES
-      ? `\n\n[참고할 실제 블로그 글 예시 - 아래 글들의 문체·어투·구성 방식을 그대로 따라하세요]\n\n${STYLE_SAMPLES}\n\n---`
-      : '';
+      ? `[★ 블로그 글 작성 전 — 반드시 이 순서대로 하세요]\n1단계: 아래 실제 블로그 글 예시들을 먼저 충분히 읽고 문체·어투·구성·감성을 완전히 내면화하세요.\n2단계: 시스템에 설정된 글쓰기 규칙(말투, 금지어, 글 구성, 분량 등)을 다시 한 번 확인하세요.\n3단계: 두 가지를 완전히 반영해 아래 정보를 바탕으로 글을 작성하세요.\n\n[실제 블로그 글 예시]\n\n${STYLE_SAMPLES}\n\n---`
+      : `[★ 블로그 글 작성 전]\n시스템에 설정된 글쓰기 규칙(말투, 금지어, 글 구성, 분량 등)을 확인하고 글을 작성하세요.\n\n---`;
 
-    const prompt = `${samplesSection}
+    // 섹션별 사진을 인라인 파트로 구성 (텍스트 + 이미지 혼합)
+    const photoParts = [];
+    let globalIdx = 1;
+    for (const group of sectionGroups) {
+      if (group.photos.length > 0) {
+        photoParts.push({ text: `\n\n[목차: ${group.name}]\n` });
+        for (const photo of group.photos) {
+          photoParts.push({ text: `[사진${globalIdx}] ` });
+          photoParts.push(imagePart(photo));
+          globalIdx++;
+        }
+      }
+    }
+
+    const preamble = `${samplesSection}
 
 ---
 
@@ -320,9 +300,11 @@ ${fieldInfo}
 
 별점: ${ratingNum}점 / 5점
 ${memoBlock}
-[업로드된 사진 AI 분석 결과 - 총 ${photos.length}장, 목차별 분류 / 각 목차의 사진을 해당 섹션 본문에 순서대로 배치]
-${photoBlock}
-${photoOrderNote}
+[아래는 목차별로 그룹화된 사진입니다 — 사진을 직접 보고 각 섹션 본문에 자연스럽게 녹여 쓰세요]
+단순 시각 묘사 금지 — 사진 속 단서를 실용적 팁이나 느낌으로 확장해서 작성하세요.
+${photoOrderNote}`;
+
+    const closing = `
 
 ---
 
@@ -357,15 +339,20 @@ ${photoOrderNote}
 해시태그 규칙: 정확히 10개, # 붙여서 공백으로 구분, 지역명+카테고리+특징 키워드 조합
 `;
 
-    const blogResult = await blogModel.generateContent(prompt);
+    const parts = [{ text: preamble }, ...photoParts, { text: closing }];
+
+    const blogResult = await blogModel.generateContent(parts);
     let parsed = parseBlogResponse(blogResult.response.text());
 
     const violations = validateBlogOutput(parsed, photos.length);
     if (violations.length > 0) {
       console.log('[validate] 위반 감지:', violations);
       send({ type: 'status', message: '규칙 검수 중 — 자동 수정...' });
-      const retryPrompt = `[규칙 위반 수정]\n다음 항목이 지켜지지 않았습니다:\n${violations.map((v) => `- ${v}`).join('\n')}\n\n위 항목만 고쳐서 전체 글을 다시 동일한 [TITLE][BODY][HASHTAGS] 형식으로 출력하세요.\n\n---\n\n${prompt}`;
-      const retryResult = await blogModel.generateContent(retryPrompt);
+      const retryParts = [
+        { text: `[규칙 위반 수정]\n다음 항목이 지켜지지 않았습니다:\n${violations.map((v) => `- ${v}`).join('\n')}\n\n위 항목만 고쳐서 전체 글을 다시 동일한 [TITLE][BODY][HASHTAGS] 형식으로 출력하세요.\n\n---\n\n` },
+        ...parts,
+      ];
+      const retryResult = await blogModel.generateContent(retryParts);
       parsed = parseBlogResponse(retryResult.response.text());
     }
 
