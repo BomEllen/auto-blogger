@@ -32,7 +32,7 @@
 body { padding-top: 52px; }
 
 :root {
-  --accent:    #DEFF35;
+  --accent:    #C5E820;
   --text:      #111827;
   --text-2:    #6B7280;
   --glass:     #ffffff;
@@ -155,10 +155,10 @@ body {
   position: absolute; border-radius: 50%;
   filter: blur(90px); transform: translateZ(0);
 }
-.blob-1 { width: 650px; height: 650px; background: #DEFF35; top: -180px; left: -180px; opacity: 0.20; }
-.blob-2 { width: 550px; height: 550px; background: #DEFF35; bottom: -120px; right: -160px; opacity: 0.13; }
-.blob-3 { width: 420px; height: 420px; background: #DEFF35; top: 42%; left: 58%; opacity: 0.10; }
-.blob-4 { width: 320px; height: 320px; background: #DEFF35; top: 20%; right: 8%; opacity: 0.16; }
+.blob-1 { width: 650px; height: 650px; background: #C5E820; top: -180px; left: -180px; opacity: 0.20; }
+.blob-2 { width: 550px; height: 550px; background: #C5E820; bottom: -120px; right: -160px; opacity: 0.13; }
+.blob-3 { width: 420px; height: 420px; background: #C5E820; top: 42%; left: 58%; opacity: 0.10; }
+.blob-4 { width: 320px; height: 320px; background: #C5E820; top: 20%; right: 8%; opacity: 0.16; }
 
 /* ── Layout ── */
 .app-wrapper { position: relative; z-index: 1; isolation: isolate; max-width: 840px; margin: 0 auto; padding: 0 20px 80px; }
@@ -239,7 +239,7 @@ body {
 
 .btn-connect {
   padding: 10px 22px; border-radius: var(--radius-sm);
-  background: rgba(222,255,53,0.88); color: var(--text);
+  background: rgba(197,232,32,0.88); color: var(--text);
   border: 1px solid rgba(255,255,255,0.6);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.75), 0 2px 10px rgba(180,220,0,0.22);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
@@ -294,7 +294,7 @@ body {
 .cat-tab:hover { border-color: var(--accent); color: var(--text); background: var(--glass-hi); }
 .cat-tab.active {
   border-color: var(--accent);
-  background: rgba(222,255,53,0.12);
+  background: rgba(197,232,32,0.12);
   color: var(--text);
 }
 
@@ -325,7 +325,7 @@ body {
 .info-method-title { font-size: 13px; font-weight: 600; color: var(--text); }
 .info-method-sub { font-size: 11px; color: var(--text-2); }
 .info-upload-zone:hover, .info-paste-zone:hover, .info-upload-zone.drag-over {
-  border-color: var(--accent); background: rgba(222,255,53,0.08);
+  border-color: var(--accent); background: rgba(197,232,32,0.08);
 }
 .info-upload-zone:hover svg, .info-paste-zone:hover svg { color: var(--text); }
 
@@ -387,7 +387,7 @@ body {
 }
 .field input[type="text"]::placeholder { color: var(--text-2); }
 .field input[type="text"]:focus { outline: none; border-color: var(--accent); background: var(--glass-hi); }
-.field input[type="text"].ai-filled { border-color: var(--accent); background: rgba(222,255,53,0.06); }
+.field input[type="text"].ai-filled { border-color: var(--accent); background: rgba(197,232,32,0.06); }
 .radio-group { display: flex; gap: 16px; flex-wrap: wrap; padding-top: 4px; }
 .radio-label { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; color: var(--text-2); }
 .radio-label input { accent-color: var(--accent); }
@@ -433,7 +433,7 @@ body {
   transition: border-color 0.15s, background-color 0.15s;
 }
 .upload-zone:hover, .upload-zone.drag-over {
-  border-color: var(--accent); background: rgba(222,255,53,0.08);
+  border-color: var(--accent); background: rgba(197,232,32,0.08);
 }
 .upload-icon { width: 36px; height: 36px; color: var(--text-2); margin: 0 auto 12px; display: block; }
 .upload-main { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
@@ -485,7 +485,7 @@ body {
 .btn-generate {
   display: inline-flex; align-items: center; gap: 10px;
   padding: 17px 52px;
-  background: rgba(222,255,53,0.88); color: var(--text);
+  background: rgba(197,232,32,0.88); color: var(--text);
   border: 1px solid rgba(255,255,255,0.6);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.75), 0 8px 32px rgba(180,220,0,0.28);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
@@ -540,7 +540,7 @@ body {
   transition: border-color 0.15s, color 0.15s, background-color 0.15s;
 }
 .btn-copy svg { width: 14px; height: 14px; }
-.btn-copy:hover { border-color: rgba(222,255,53,0.6); color: var(--text); background: rgba(255,255,255,0.88); }
+.btn-copy:hover { border-color: rgba(197,232,32,0.6); color: var(--text); background: rgba(255,255,255,0.88); }
 .btn-copy-all {
   background: rgba(17,24,39,0.86); color: #fff;
   border-color: rgba(255,255,255,0.14); font-weight: 800;
@@ -571,7 +571,7 @@ body {
 .result-body-box:focus { border-color: var(--accent); background: var(--glass-hi); }
 .photo-marker {
   display: inline-block; padding: 2px 8px;
-  background: rgba(222,255,53,0.15); border: 1px dashed rgba(0,0,0,0.2);
+  background: rgba(197,232,32,0.15); border: 1px dashed rgba(0,0,0,0.2);
   border-radius: 4px; font-size: 12px; color: var(--text-2);
 }
 
@@ -586,7 +586,7 @@ body {
   font-size: 13px; font-weight: 500; font-family: inherit;
   cursor: pointer; transition: background-color 0.15s, border-color 0.15s, color 0.15s;
 }
-.tag-chip:hover { background: rgba(222,255,53,0.12); border-color: var(--accent); color: var(--text); }
+.tag-chip:hover { background: rgba(197,232,32,0.12); border-color: var(--accent); color: var(--text); }
 .tag-chip:active { transform: scale(0.96); }
 
 /* ── 토스트 ── */
@@ -643,7 +643,7 @@ body {
 .ai-notice {
   display: flex; align-items: flex-start; gap: 10px;
   padding: 12px 14px;
-  background: rgba(222,255,53,0.07); border: 1px solid rgba(222,255,53,0.4);
+  background: rgba(197,232,32,0.07); border: 1px solid rgba(197,232,32,0.4);
   border-radius: var(--radius-sm);
   font-size: 12px; color: var(--text-2); line-height: 1.65;
 }
@@ -674,7 +674,7 @@ body {
 .modal-actions { display: flex; gap: 8px; justify-content: center; }
 .modal-btn-ok {
   padding: 10px 28px; border-radius: 50px;
-  background: rgba(222,255,53,0.88); color: var(--text);
+  background: rgba(197,232,32,0.88); color: var(--text);
   border: 1px solid rgba(255,255,255,0.6);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.75), 0 2px 10px rgba(180,220,0,0.22);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
@@ -737,7 +737,7 @@ body {
   transition: border-color 0.15s, background-color 0.15s, color 0.15s;
 }
 .section-upload-zone:hover, .section-upload-zone.drag-over {
-  border-color: var(--accent); background: rgba(222,255,53,0.08); color: var(--text);
+  border-color: var(--accent); background: rgba(197,232,32,0.08); color: var(--text);
 }
 
 .section-photo-bar {
@@ -759,10 +759,17 @@ body {
   display: flex; align-items: center; justify-content: center; gap: 8px;
   transition: border-color 0.15s, color 0.15s, background-color 0.15s;
 }
-.btn-add-section:hover { border-color: var(--accent); color: var(--text); background: rgba(222,255,53,0.06); }
+.btn-add-section:hover { border-color: var(--accent); color: var(--text); background: rgba(197,232,32,0.06); }
 .btn-add-section svg { width: 15px; height: 15px; }
 
 .app-footer { margin-top: 48px; text-align: center; font-size: 12px; color: var(--text-2); padding-bottom: 24px; }
+
+/* ── 준비 중 페이지 ── */
+.coming-soon-page {
+  min-height: calc(100vh - 52px);
+  display: flex; align-items: center; justify-content: center;
+}
+.coming-soon-text { font-size: 16px; font-weight: 600; color: var(--text-2); }
 
 /* ── 제목 생성 페이지 ── */
 .title-gen-page { min-height: calc(100vh - 52px); }
@@ -834,11 +841,11 @@ body {
 .tg-result-title { font-size: 16px; font-weight: 700; color: var(--text); }
 .tg-result-box {
   padding: 16px; border-radius: var(--radius-sm);
-  background: rgba(222,255,53,0.08); border: 1.5px solid rgba(143,204,42,0.3);
+  background: rgba(197,232,32,0.08); border: 1.5px solid rgba(143,204,42,0.3);
   font-size: 16px; font-weight: 700; color: var(--text); line-height: 1.5;
   min-height: 52px; outline: none; cursor: text;
 }
-.tg-result-box:focus { border-color: rgba(143,204,42,0.6); background: rgba(222,255,53,0.12); }
+.tg-result-box:focus { border-color: rgba(143,204,42,0.6); background: rgba(197,232,32,0.12); }
 .tg-result-hint { font-size: 12px; color: var(--text-2); margin-top: 8px; }
 
 .tg-error {

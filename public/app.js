@@ -1,5 +1,6 @@
 import { Navbar } from './components/Navbar.js';
 import { getHTML as homeHTML, mount as mountHome } from './pages/HomePage.js';
+import { getHTML as infoHTML, mount as mountInfo } from './pages/InfoBlogPage.js';
 import { getHTML as titleHTML, mount as mountTitle } from './pages/TitleGenPage.js';
 
 const navRoot = document.getElementById('navRoot');
@@ -7,6 +8,7 @@ const pageRoot = document.getElementById('pageRoot');
 
 const routes = {
   '/':          { html: homeHTML,  mount: mountHome,  nav: 'home' },
+  '/info-blog': { html: infoHTML,  mount: mountInfo,  nav: 'info-blog' },
   '/title-gen': { html: titleHTML, mount: mountTitle, nav: 'title-gen' },
 };
 
