@@ -1,5 +1,35 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ── 네비게이션 바 ── */
+.main-nav {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 52px; z-index: 9900;
+  background: rgba(248,253,240,0.85);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  border-bottom: 1px solid rgba(160,210,60,0.2);
+}
+.nav-inner {
+  max-width: 900px; margin: 0 auto; padding: 0 20px;
+  height: 100%; display: flex; align-items: center; justify-content: space-between;
+}
+.nav-logo {
+  display: flex; align-items: center; gap: 8px;
+  text-decoration: none;
+}
+.nav-logo-img { width: 26px; height: 26px; border-radius: 6px; object-fit: cover; }
+.nav-logo-text { font-size: 15px; font-weight: 800; color: #1a3d08; letter-spacing: -0.03em; }
+.nav-links { display: flex; align-items: center; gap: 4px; }
+.nav-link {
+  padding: 6px 14px; border-radius: 20px;
+  font-size: 13px; font-weight: 600; color: var(--text-2);
+  text-decoration: none;
+  transition: background-color 0.15s, color 0.15s;
+}
+.nav-link:hover { background: rgba(0,0,0,0.05); color: var(--text); }
+.nav-link.active { background: rgba(143,204,42,0.18); color: #1a3d08; }
+
+body { padding-top: 52px; }
+
 :root {
   --accent:    #DEFF35;
   --text:      #111827;
@@ -17,7 +47,7 @@
 
 /* ── 스티키 헤더 ── */
 .sticky-header {
-  position: fixed; top: 0; left: 0; right: 0;
+  position: fixed; top: 52px; left: 0; right: 0;
   height: 52px; z-index: 9500;
   background: rgba(240,250,220,0.72);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
@@ -732,6 +762,95 @@ body {
 .btn-add-section svg { width: 15px; height: 15px; }
 
 .app-footer { margin-top: 48px; text-align: center; font-size: 12px; color: var(--text-2); padding-bottom: 24px; }
+
+/* ── 제목 생성 페이지 ── */
+.title-gen-page { min-height: calc(100vh - 52px); }
+
+.title-gen-hero {
+  position: relative; overflow: hidden;
+  background: linear-gradient(135deg, #f0fce0 0%, #e8f7d0 60%, #f5ffe8 100%);
+  padding: 56px 20px 44px;
+  text-align: center;
+}
+.title-gen-hero-inner { position: relative; z-index: 1; }
+.title-gen-heading {
+  font-size: clamp(28px, 5vw, 40px); font-weight: 800;
+  color: #1a3d08; letter-spacing: -0.04em; margin: 12px 0 10px;
+}
+.title-gen-sub { font-size: 15px; color: #4a7a20; font-weight: 500; }
+
+.title-gen-wrapper {
+  max-width: 720px; margin: 0 auto; padding: 32px 20px 60px;
+  display: flex; flex-direction: column; gap: 20px;
+}
+
+.tg-api-status { }
+.tg-api-connected, .tg-api-missing {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 500; color: var(--text-2);
+  padding: 10px 14px; border-radius: var(--radius-sm);
+  background: var(--glass-md); border: 1px solid var(--border-lo);
+}
+.tg-api-connected { color: #2d6b0a; background: rgba(143,204,42,0.1); border-color: rgba(143,204,42,0.25); }
+.tg-api-connected svg, .tg-api-missing svg { width: 16px; height: 16px; flex-shrink: 0; }
+.tg-api-link { color: #2d6b0a; font-weight: 700; text-decoration: underline; }
+
+.tg-card { display: flex; flex-direction: column; gap: 16px; }
+.tg-card-header { }
+.tg-card-title { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.tg-card-desc { font-size: 13px; color: var(--text-2); }
+
+.tg-body-textarea {
+  width: 100%; padding: 14px 16px;
+  border: 1.5px solid var(--border-lo); border-radius: var(--radius-sm);
+  background: var(--glass-md); font-family: inherit;
+  font-size: 14px; color: var(--text); line-height: 1.7;
+  resize: vertical; min-height: 200px;
+  transition: border-color 0.15s;
+}
+.tg-body-textarea:focus { outline: none; border-color: rgba(143,204,42,0.6); background: #fff; }
+.tg-body-textarea::placeholder { color: var(--text-2); }
+
+.tg-char-count { font-size: 12px; color: var(--text-2); text-align: right; margin-top: -8px; }
+
+.btn-tg-generate {
+  align-self: flex-start;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 13px 28px;
+  background: linear-gradient(135deg, #a8d832 0%, #8fcc2a 100%);
+  color: #1a3d08; font-family: inherit; font-size: 15px; font-weight: 800;
+  border: none; border-radius: 24px; cursor: pointer;
+  box-shadow: 0 4px 16px rgba(143,204,42,0.35);
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+}
+.btn-tg-generate:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(143,204,42,0.45); }
+.btn-tg-generate:active:not(:disabled) { transform: translateY(0); }
+.btn-tg-generate:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-tg-generate svg { width: 18px; height: 18px; }
+
+.tg-result-card { }
+.tg-result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.tg-result-title { font-size: 16px; font-weight: 700; color: var(--text); }
+.tg-result-box {
+  padding: 16px; border-radius: var(--radius-sm);
+  background: rgba(222,255,53,0.08); border: 1.5px solid rgba(143,204,42,0.3);
+  font-size: 16px; font-weight: 700; color: var(--text); line-height: 1.5;
+  min-height: 52px; outline: none; cursor: text;
+}
+.tg-result-box:focus { border-color: rgba(143,204,42,0.6); background: rgba(222,255,53,0.12); }
+.tg-result-hint { font-size: 12px; color: var(--text-2); margin-top: 8px; }
+
+.tg-error {
+  font-size: 13px; color: #e05555; font-weight: 500;
+  padding: 12px 16px; border-radius: var(--radius-sm);
+  background: rgba(224,85,85,0.08); border: 1px solid rgba(224,85,85,0.2);
+}
+
+.tg-loading {
+  display: flex; align-items: center; gap: 12px;
+  font-size: 14px; font-weight: 600; color: var(--text-2);
+  padding: 16px;
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }

@@ -201,6 +201,37 @@ app.post('/api/verify-key', async (req, res) => {
   }
 });
 
+// ── 제목 생성 ──
+app.post('/api/generate-title', async (req, res) => {
+  const apiKey = req.headers['x-api-key'];
+  if (!apiKey) return res.status(400).json({ error: 'API 키가 필요합니다.' });
+  const { body } = req.body;
+  if (!body?.trim()) return res.status(400).json({ error: '본문 내용이 없습니다.' });
+
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+    const prompt = `아래 블로그 본문을 읽고 네이버 블로그 SEO에 최적화된 제목을 생성하세요.
+
+[제목 작성 규칙]
+1. 본문 내용과 관련된 핵심 키워드, 연관 키워드, 브랜드 키워드를 먼저 추출한다.
+2. 검색량이 있는 키워드를 우선 사용하되 본문 내용과 반드시 일치해야 한다.
+3. 키워드를 나열하지 말고 자연스러운 한 문장으로 구성한다.
+4. 하나의 제목 안에서 여러 롱테일 키워드가 검색될 수 있도록 설계한다.
+5. 공백 포함 40자 이내, 중복 단어·이모티콘·의미 없는 수식어·감성 표현은 최소화한다.
+6. 사람이 자연스럽게 이해할 수 있으면서도 검색 엔진이 핵심 키워드를 명확히 인식할 수 있게 작성한다.
+
+[본문]
+${body.substring(0, 3000)}
+
+제목만 출력하세요. 다른 설명 없이 제목 텍스트만.`;
+    const result = await model.generateContent(prompt);
+    res.json({ title: result.response.text().trim() });
+  } catch (err) {
+    res.status(500).json({ error: friendlyGeminiError(err) });
+  }
+});
+
 // ── 장소 정보 추출 ──
 app.post('/api/extract-info', upload.single('photo'), async (req, res) => {
   const apiKey = req.headers['x-api-key'];

@@ -6,11 +6,9 @@
   <link rel="icon" href="/favicon.png" type="image/PNG">
   <title>찍기만 해!</title>
 
-  <!-- Primary Meta -->
   <meta name="description" content="사진만 올리면 네이버 블로그 글이 완성돼요. AI가 사진을 분석해 카페·맛집·숙소 리뷰를 자동으로 작성해드립니다." />
   <meta name="author" content="찍기만 해!" />
 
-  <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://auto-blogger-vjwg.onrender.com/" />
   <meta property="og:title" content="찍기만 해!" />
@@ -18,11 +16,11 @@
   <meta property="og:image" content="https://auto-blogger-vjwg.onrender.com/favicon.png" />
   <meta property="og:locale" content="ko_KR" />
 
-  <!-- Twitter Card -->
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="찍기만 해!" />
   <meta name="twitter:description" content="사진만 올리면 네이버 블로그 글이 완성돼요. AI가 사진을 분석해 카페·맛집·숙소 리뷰를 자동으로 작성해드립니다." />
   <meta name="twitter:image" content="https://auto-blogger-vjwg.onrender.com/favicon.png" />
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -31,20 +29,10 @@
 </head>
 <body>
 
-  <!-- 스티키 헤더 -->
-  <div class="sticky-header" id="stickyHeader">
-    <div class="sticky-header-inner">
-      <div class="sticky-logo">
-        <img src="/favicon.png" alt="찍기만 해!" class="sticky-logo-img" />
-        <span class="sticky-logo-text">찍기만 해!</span>
-      </div>
-      <div class="sticky-actions">
-        <span class="sticky-badge">AI 블로그 생성</span>
-        <button class="sticky-start-btn" id="stickyStartBtn">시작하기</button>
-      </div>
-    </div>
-  </div>
+  <!-- 네비게이션 바 -->
+  <nav class="main-nav" id="navRoot"></nav>
 
+  <!-- 배경 블롭 -->
   <div class="bg-blobs">
     <div class="blob blob-1"></div>
     <div class="blob blob-2"></div>
@@ -52,436 +40,10 @@
     <div class="blob blob-4"></div>
   </div>
 
-  <!-- 히어로 섹션 -->
-  <section class="hero-section" id="heroSection">
-    <div class="hero-orb hero-orb-1"></div>
-    <div class="hero-orb hero-orb-2"></div>
-    <div class="hero-inner">
-      <div class="hero-left">
-        <div class="hero-badge">AI 블로그 자동 생성</div>
-        <h1 class="hero-title">찍기만 해!<br><span class="hero-title-gradient">글은 AI가</span></h1>
-        <p class="hero-sub">사진 한 장으로 완성되는 네이버 블로그</p>
-      </div>
-    </div>
-  </section>
+  <!-- 페이지 콘텐츠 마운트 지점 -->
+  <div id="pageRoot"></div>
 
-  <div class="app-wrapper">
-
-    <!-- Header -->
-    <header class="app-header">
-      <div class="logo">
-        <span class="logo-accent">찍기만 해!</span>
-        <p>사진만 올리면 네이버 블로그 글이 완성돼요</p>
-      </div>
-    </header>
-
-    <main class="main-content">
-
-      <!-- ── API 연동 카드 ── -->
-      <section class="card api-card" id="apiCard">
-        <div class="api-card-header">
-          <span class="api-card-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 0 1 21.75 8.25Z" />
-            </svg>
-          </span>
-          <div class="api-card-texts">
-            <h2>Google Gemini API 연동</h2>
-            <p id="apiCardDesc">API 키를 입력하고 연동하면 블로그 글 생성이 시작됩니다</p>
-          </div>
-          <span class="api-badge hidden" id="apiBadge">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-            </svg>
-            연동됨
-          </span>
-        </div>
-
-        <div class="api-input-row" id="apiInputRow">
-          <div class="api-input-group">
-            <input type="password" id="apiKey" placeholder="AIzaSy..." autocomplete="off" />
-            <button class="btn-icon" id="toggleKey" title="보기/숨기기">
-              <svg id="eyeIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-              </svg>
-            </button>
-          </div>
-          <button class="btn-connect" id="connectBtn">연동하기</button>
-        </div>
-
-        <div class="api-connected-row hidden" id="apiConnectedRow">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="connected-icon">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-          </svg>
-          <span class="masked-key" id="maskedKey"></span>
-          <button class="btn-change-key" id="changeKeyBtn">키 변경</button>
-        </div>
-
-        <p class="api-error hidden" id="apiError"></p>
-      </section>
-
-      <!-- ── 메인 폼 ── -->
-      <div class="main-steps locked" id="mainSteps">
-
-        <!-- Step 1: Category + Info -->
-        <section class="card step-card">
-          <div class="step-label">STEP 1</div>
-          <h2 class="step-title">카테고리 · 장소 정보</h2>
-          <div class="category-tabs">
-            <button class="cat-tab active" data-cat="cafe">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z" />
-              </svg>
-              <span>카페</span>
-            </button>
-            <button class="cat-tab" data-cat="restaurant">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15.362 5.214A8.252 8.252 0 0 1 12 21 8.25 8.25 0 0 1 6.038 7.047 8.287 8.287 0 0 0 9 9.601a8.983 8.983 0 0 1 3.361-6.867 8.21 8.21 0 0 0 3 2.48Z" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 18a3.75 3.75 0 0 0 .495-7.468 5.99 5.99 0 0 0-1.925 3.547 5.975 5.975 0 0 1-2.133-1.001A3.75 3.75 0 0 0 12 18Z" />
-              </svg>
-              <span>음식점</span>
-            </button>
-            <button class="cat-tab" data-cat="accommodation">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-              </svg>
-              <span>숙소</span>
-            </button>
-            <button class="cat-tab" data-cat="etc">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-              </svg>
-              <span>기타</span>
-            </button>
-          </div>
-
-          <div class="section-divider"><span>장소 정보</span></div>
-
-          <!-- 정보 가져오기 -->
-          <div class="info-fetch-section">
-            <p class="field-label">장소 정보 자동 입력 <span class="tag-optional">선택</span></p>
-            <p class="field-hint">네이버 지도 캡처, 메뉴판 등 장소 정보가 담긴 사진을 올리면 자동으로 채워드려요</p>
-
-            <div class="info-methods">
-              <!-- 파일 업로드 -->
-              <div class="info-upload-zone" id="infoUploadZone">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
-                </svg>
-                <span class="info-method-title">파일 선택</span>
-                <span class="info-method-sub">클릭하거나 드래그</span>
-                <input type="file" id="infoPhotoInput" accept="image/*" hidden />
-              </div>
-
-              <!-- 클립보드 붙여넣기 -->
-              <button class="info-paste-zone" id="pasteClipboardBtn">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
-                </svg>
-                <span class="info-method-title">캡처 붙여넣기</span>
-                <span class="info-method-sub">스크린샷 후 클릭</span>
-              </button>
-            </div>
-
-            <!-- 미리보기 -->
-            <div class="info-preview-wrap hidden" id="infoPreviewWrap">
-              <img class="info-preview-img" id="infoPreviewImg" src="" alt="정보 사진" />
-              <div class="info-extract-status">
-                <div class="extract-spinner hidden" id="extractSpinner"></div>
-                <span id="infoExtractText">AI 분석 중...</span>
-              </div>
-              <button class="btn-clear-info" id="clearInfoPhoto" title="제거">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <div class="section-divider"><span>직접 입력</span></div>
-
-          <!-- Cafe -->
-          <div class="field-group" id="fields-cafe">
-            <div class="field-row">
-              <div class="field">
-                <label>카페명 <span class="req">*</span></label>
-                <input type="text" name="name" placeholder="예) 온더테이블 성수점" />
-              </div>
-              <div class="field">
-                <label>위치 <span class="req">*</span></label>
-                <input type="text" name="location" placeholder="예) 서울 성동구 성수동" />
-              </div>
-            </div>
-            <div class="field-row">
-              <div class="field">
-                <label>영업시간</label>
-                <input type="text" name="hours" placeholder="예) 평일 10:00~22:00" />
-              </div>
-              <div class="field">
-                <label>편의시설</label>
-                <input type="text" name="amenities" placeholder="예) 와이파이, 콘센트, 테라스" />
-              </div>
-            </div>
-            <div class="field-row">
-              <div class="field">
-                <label>주차 여부</label>
-                <div class="radio-group">
-                  <label class="radio-label"><input type="radio" name="parking" value="주차 가능" checked /> 가능</label>
-                  <label class="radio-label"><input type="radio" name="parking" value="주차 불가" /> 불가</label>
-                  <label class="radio-label"><input type="radio" name="parking" value="인근 유료주차" /> 인근 유료</label>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Restaurant -->
-          <div class="field-group hidden" id="fields-restaurant">
-            <div class="field-row">
-              <div class="field">
-                <label>식당명 <span class="req">*</span></label>
-                <input type="text" name="name" placeholder="예) 을지로 원조집" />
-              </div>
-              <div class="field">
-                <label>위치 <span class="req">*</span></label>
-                <input type="text" name="location" placeholder="예) 서울 중구 을지로" />
-              </div>
-            </div>
-            <div class="field-row">
-              <div class="field">
-                <label>대표메뉴 및 가격</label>
-                <input type="text" name="menu" placeholder="예) 갈비탕 15,000원" />
-              </div>
-              <div class="field">
-                <label>영업시간</label>
-                <input type="text" name="hours" placeholder="예) 11:30~21:00" />
-              </div>
-            </div>
-            <div class="field-row">
-              <div class="field">
-                <label>예약 필요 여부</label>
-                <div class="radio-group">
-                  <label class="radio-label"><input type="radio" name="reservation" value="예약 필수" /> 예약 필수</label>
-                  <label class="radio-label"><input type="radio" name="reservation" value="예약 가능" checked /> 예약 가능</label>
-                  <label class="radio-label"><input type="radio" name="reservation" value="예약 불필요" /> 불필요</label>
-                </div>
-              </div>
-              <div class="field">
-                <label>주차 여부</label>
-                <div class="radio-group">
-                  <label class="radio-label"><input type="radio" name="parking" value="주차 가능" checked /> 가능</label>
-                  <label class="radio-label"><input type="radio" name="parking" value="주차 불가" /> 불가</label>
-                  <label class="radio-label"><input type="radio" name="parking" value="인근 유료주차" /> 인근 유료</label>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Accommodation -->
-          <div class="field-group hidden" id="fields-accommodation">
-            <div class="field-row">
-              <div class="field">
-                <label>숙소명 <span class="req">*</span></label>
-                <input type="text" name="name" placeholder="예) 제주 오션뷰 풀빌라" />
-              </div>
-              <div class="field">
-                <label>위치 <span class="req">*</span></label>
-                <input type="text" name="location" placeholder="예) 제주 서귀포시 중문동" />
-              </div>
-            </div>
-            <div class="field-row">
-              <div class="field">
-                <label>1박 가격</label>
-                <input type="text" name="price" placeholder="예) 주중 180,000원" />
-              </div>
-              <div class="field">
-                <label>전화번호</label>
-                <input type="text" name="phone" placeholder="예) 064-000-0000" />
-              </div>
-            </div>
-            <div class="field-row">
-              <div class="field">
-                <label>체크인</label>
-                <input type="text" name="checkin" placeholder="예) 15:00" />
-              </div>
-              <div class="field">
-                <label>체크아웃</label>
-                <input type="text" name="checkout" placeholder="예) 11:00" />
-              </div>
-            </div>
-          </div>
-
-          <!-- Etc -->
-          <div class="field-group hidden" id="fields-etc">
-            <div class="field-row">
-              <div class="field">
-                <label>장소 이름 <span class="req">*</span></label>
-                <input type="text" name="name" placeholder="예) 서울숲" />
-              </div>
-              <div class="field">
-                <label>위치 <span class="req">*</span></label>
-                <input type="text" name="location" placeholder="예) 서울 성동구 뚝섬로" />
-              </div>
-            </div>
-            <div class="field-row">
-              <div class="field">
-                <label>영업시간</label>
-                <input type="text" name="hours" placeholder="예) 상시 개방" />
-              </div>
-              <div class="field">
-                <label>주차 여부</label>
-                <div class="radio-group">
-                  <label class="radio-label"><input type="radio" name="parking" value="주차 가능" checked /> 가능</label>
-                  <label class="radio-label"><input type="radio" name="parking" value="주차 불가" /> 불가</label>
-                  <label class="radio-label"><input type="radio" name="parking" value="인근 유료주차" /> 인근 유료</label>
-                </div>
-              </div>
-            </div>
-            <div class="field-row">
-              <div class="field field-full">
-                <label>넣고 싶은 정보</label>
-                <input type="text" name="extra" placeholder="예) 입장료 무료, 반려동물 동반 가능" />
-              </div>
-            </div>
-          </div>
-
-          <!-- Rating -->
-          <div class="rating-section">
-            <label class="field-label">별점 <span class="req">*</span></label>
-            <div class="star-picker">
-              <div class="stars-row" id="starsDisplay">
-                <div class="star-unit" data-unit="1">
-                  <div class="star-bg">★</div><div class="star-fill" id="sf1"></div>
-                  <div class="zone zone-l" data-val="0.5"></div><div class="zone zone-r" data-val="1"></div>
-                </div>
-                <div class="star-unit" data-unit="2">
-                  <div class="star-bg">★</div><div class="star-fill" id="sf2"></div>
-                  <div class="zone zone-l" data-val="1.5"></div><div class="zone zone-r" data-val="2"></div>
-                </div>
-                <div class="star-unit" data-unit="3">
-                  <div class="star-bg">★</div><div class="star-fill" id="sf3"></div>
-                  <div class="zone zone-l" data-val="2.5"></div><div class="zone zone-r" data-val="3"></div>
-                </div>
-                <div class="star-unit" data-unit="4">
-                  <div class="star-bg">★</div><div class="star-fill" id="sf4"></div>
-                  <div class="zone zone-l" data-val="3.5"></div><div class="zone zone-r" data-val="4"></div>
-                </div>
-                <div class="star-unit" data-unit="5">
-                  <div class="star-bg">★</div><div class="star-fill" id="sf5"></div>
-                  <div class="zone zone-l" data-val="4.5"></div><div class="zone zone-r" data-val="5"></div>
-                </div>
-              </div>
-              <span class="rating-value" id="ratingValue">4.5 / 5</span>
-            </div>
-          </div>
-        </section>
-
-        <!-- Step 2: Memo -->
-        <section class="card step-card">
-          <div class="step-label">STEP 2</div>
-          <h2 class="step-title">꼭 넣고 싶은 내용</h2>
-          <p class="step-desc">블로그 글에 반드시 포함됐으면 하는 내용을 자유롭게 적어주세요 <span class="tag-optional">선택</span></p>
-          <textarea
-            id="memoInput"
-            class="memo-textarea"
-            placeholder="예) 직원분이 너무 친절하셨어요 / 창가 자리 꼭 앉아보세요 / 웨이팅 있었는데 30분 정도 기다렸어요 / 주차는 인근 공영주차장 이용했어요..."
-            rows="5"
-          ></textarea>
-        </section>
-
-        <!-- Step 3: Photos -->
-        <section class="card step-card step-card-photos">
-          <div class="step-label">STEP 3</div>
-          <h2 class="step-title">리뷰 사진 업로드</h2>
-          <p class="step-desc">목차별로 사진을 올려주세요 · JPG, PNG, WEBP · 장당 10MB</p>
-          <div id="sectionsContainer" class="sections-container"></div>
-          <button class="btn-add-section" id="addSectionBtn">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            목차 추가
-          </button>
-        </section>
-
-        <!-- Generate -->
-        <div class="generate-section">
-          <button class="btn-generate" id="generateBtn">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
-            </svg>
-            블로그 글 자동 생성
-          </button>
-        </div>
-
-        <!-- Progress -->
-        <div class="progress-card hidden" id="progressCard">
-          <div class="progress-inner">
-            <div class="spinner"></div>
-            <div class="progress-text">
-              <p class="progress-status" id="progressStatus">준비 중...</p>
-              <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
-              <p class="progress-detail" id="progressDetail"></p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Result -->
-        <section class="card result-card hidden" id="resultCard">
-          <div class="ai-notice">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
-            </svg>
-            <p>AI가 사진을 분석해 작성한 글이에요. 장소명·메뉴·가격·영업시간 등 세부 내용이 실제와 다를 수 있으니, 올리기 전에 꼭 확인하고 수정해주세요.</p>
-          </div>
-
-          <div class="result-header">
-            <h2>완성된 블로그 글</h2>
-            <div class="result-actions">
-              <button class="btn-copy" id="copyTitle">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.688a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
-                </svg>
-                제목 복사
-              </button>
-              <button class="btn-copy" id="copyBody">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.688a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
-                </svg>
-                본문 복사
-              </button>
-              <button class="btn-copy btn-copy-all" id="copyAll">전체 복사</button>
-            </div>
-          </div>
-
-          <div class="result-section">
-            <div class="result-label-row">
-              <span class="result-label">제목</span>
-              <span class="result-hint">네이버 블로그 제목으로 사용</span>
-            </div>
-            <div class="result-title-box" id="titleOutput" contenteditable="true" spellcheck="false"></div>
-          </div>
-
-          <div class="result-section">
-            <div class="result-label-row">
-              <span class="result-label">본문</span>
-              <span class="result-hint">사진은 미리보기로 표시 · 복사하면 [사진N] 위치 마커가 포함돼요</span>
-            </div>
-            <div class="result-body-box" id="bodyOutput" contenteditable="true" spellcheck="false"></div>
-          </div>
-
-          <div class="result-section">
-            <div class="result-label-row">
-              <span class="result-label">해시태그</span>
-              <span class="result-hint">각 태그를 클릭하면 복사돼요</span>
-            </div>
-            <div class="result-tags-box" id="tagsOutput"></div>
-          </div>
-        </section>
-
-      </div><!-- /main-steps -->
-    </main>
-
-    <!-- 라이트박스 -->
+  <!-- 라이트박스 (공유) -->
   <div class="lightbox hidden" id="lightbox">
     <div class="lightbox-backdrop" id="lightboxBackdrop"></div>
     <div class="lightbox-content">
@@ -495,7 +57,7 @@
     </div>
   </div>
 
-  <!-- 커스텀 모달 -->
+  <!-- 커스텀 모달 (공유) -->
   <div class="modal-overlay hidden" id="customModal">
     <div class="modal-bd" id="modalBd"></div>
     <div class="modal-box">
@@ -504,13 +66,9 @@
     </div>
   </div>
 
+  <!-- 복사 토스트 (공유) -->
   <div class="copy-toast hidden" id="copyToast">복사됐어요!</div>
 
-    <footer class="app-footer">
-      <p>Powered by Google Gemini · 네이버 블로그 최적화</p>
-    </footer>
-  </div>
-
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
