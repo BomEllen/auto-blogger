@@ -114,6 +114,7 @@ export function getHTML() {
           </div>
           <div class="result-tags-box" id="ibTagsOutput"></div>
         </div>
+
       </section>
 
     </div>

@@ -810,6 +810,23 @@ body {
 .ib-textarea:focus { outline: none; border-color: rgba(143,204,42,0.6); background: #fff; }
 .ib-textarea::placeholder { color: var(--text-2); }
 
+.ib-table-title {
+  font-size: 13px; font-weight: 700; color: var(--text-2);
+  margin-bottom: 10px;
+}
+.ib-table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+}
+.ib-table th, .ib-table td {
+  padding: 8px 12px; border: 1px solid var(--border-lo);
+  text-align: left; vertical-align: top;
+}
+.ib-table th {
+  background: rgba(197,232,32,0.12); font-weight: 700;
+  color: var(--text); white-space: nowrap; width: 30%;
+}
+.ib-table td { color: var(--text); }
+
 /* ── 제목 생성 페이지 ── */
 .title-gen-page { min-height: calc(100vh - 52px); }
 
