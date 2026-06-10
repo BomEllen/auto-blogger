@@ -232,6 +232,64 @@ ${body.substring(0, 3000)}
   }
 });
 
+// ── 정보성 블로그 생성 ──
+let INFO_BLOG_GUIDE = '';
+try {
+  INFO_BLOG_GUIDE = fs.readFileSync(path.join(__dirname, 'info-blog-guide.md'), 'utf-8').trim();
+} catch {
+  // 파일 없으면 무시
+}
+
+app.post('/api/generate-info-blog', async (req, res) => {
+  const apiKey = req.headers['x-api-key'];
+  if (!apiKey) return res.status(400).json({ error: 'API 키가 필요합니다.' });
+
+  const { mainKeyword, subKeywords, targetReader, actualInfo, affiliateLink } = req.body;
+  if (!mainKeyword?.trim()) return res.status(400).json({ error: '핵심 키워드를 입력해주세요.' });
+  if (!actualInfo?.trim()) return res.status(400).json({ error: '실제 정보를 입력해주세요.' });
+
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+
+    const guideSection = INFO_BLOG_GUIDE
+      ? `[글쓰기 가이드 — 반드시 준수]\n${INFO_BLOG_GUIDE}\n\n`
+      : '';
+
+    const prompt = `${guideSection}아래 입력값을 바탕으로 네이버 블로그용 정보성 글을 작성하세요.
+
+[입력값]
+- 핵심 키워드: ${mainKeyword.trim()}
+- 보조 키워드: ${subKeywords?.trim() || '없음'}
+- 타겟 독자: ${targetReader?.trim() || '일반 독자'}
+- 실제 정보 (경험/사진 내용): ${actualInfo.trim()}
+- 삽입할 제휴 링크: ${affiliateLink?.trim() || '없음'}
+
+[출력 형식]
+[TITLE]제목[/TITLE]
+[BODY]본문[/BODY]
+[HASHTAGS]해시태그 목록 (띄어쓰기로 구분)[/HASHTAGS]
+
+위 형식을 정확히 지켜서 출력하세요.`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().trim();
+
+    const extract = (tag) => {
+      const m = text.match(new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`));
+      return m ? m[1].trim() : '';
+    };
+
+    res.json({
+      title: extract('TITLE'),
+      body: extract('BODY'),
+      hashtags: extract('HASHTAGS'),
+    });
+  } catch (err) {
+    res.status(500).json({ error: friendlyGeminiError(err) });
+  }
+});
+
 // ── 장소 정보 추출 ──
 app.post('/api/extract-info', upload.single('photo'), async (req, res) => {
   const apiKey = req.headers['x-api-key'];
