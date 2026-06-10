@@ -36,26 +36,26 @@ export function getHTML() {
         <div class="ib-field">
           <label class="ib-label">핵심 키워드 <span class="req">*</span></label>
           <p class="ib-hint">이 글이 검색되길 원하는 핵심 단어</p>
-          <input type="text" id="ibMainKeyword" class="ib-input" placeholder="예) 강남 맛집 추천" />
+          <input type="text" id="ibMainKeyword" class="ib-input" placeholder="예) 6월 오사카 날씨" />
         </div>
 
         <div class="ib-field">
           <label class="ib-label">보조 키워드</label>
           <p class="ib-hint">함께 노출되면 좋은 연관 키워드 (쉼표로 구분)</p>
-          <input type="text" id="ibSubKeywords" class="ib-input" placeholder="예) 강남 점심, 강남 혼밥, 직장인 밥집" />
+          <input type="text" id="ibSubKeywords" class="ib-input" placeholder="예) 오사카 장마, 오사카 옷차림, 오사카 여행 준비물" />
         </div>
 
         <div class="ib-field">
           <label class="ib-label">타겟 독자</label>
           <p class="ib-hint">이 글을 읽을 독자층</p>
-          <input type="text" id="ibTargetReader" class="ib-input" placeholder="예) 강남에서 점심 찾는 직장인" />
+          <input type="text" id="ibTargetReader" class="ib-input" placeholder="예) 6월에 오사카 여행 가는 20~30대" />
         </div>
 
         <div class="ib-field">
           <label class="ib-label">실제 정보 <span class="req">*</span></label>
           <p class="ib-hint">직접 경험한 내용이나 사진에서 뽑은 정보를 자유롭게 적어주세요</p>
           <textarea id="ibActualInfo" class="ib-textarea" rows="8"
-            placeholder="예) 강남역 2번 출구 도보 3분&#10;메뉴: 된장찌개 8,000원, 제육볶음 9,000원&#10;점심시간 웨이팅 10분 정도&#10;혼밥 가능한 1인석 있음&#10;깔끔하고 집밥 느낌"></textarea>
+            placeholder="예) 첫날 비바람 강했고 둘째날부터 흐림·맑음 반복&#10;낮엔 덥고 습한데 실내는 냉방 강해서 얇은 겉옷 필요&#10;평균 기온 24도 안팎, 우산·방수신발 챙김&#10;비 오는 날엔 우메다 지하상가, 가이유칸 등 실내 위주로 다님"></textarea>
           <div class="tg-char-count"><span id="ibCharCount">0</span>자</div>
         </div>
 
