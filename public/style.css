@@ -566,7 +566,7 @@ body {
   border-radius: var(--radius-sm); background: var(--glass-md);
   font-size: 14px; color: var(--text); line-height: 1.9;
   min-height: 300px; max-height: 600px; overflow-y: auto;
-  outline: none; word-break: break-word;
+  outline: none; word-break: break-word; white-space: pre-wrap;
 }
 .result-body-box:focus { border-color: var(--accent); background: var(--glass-hi); }
 .photo-marker {
