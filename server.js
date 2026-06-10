@@ -202,14 +202,9 @@ app.post('/api/generate-info-blog', async (req, res) => {
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL, systemInstruction: INFO_BLOG_GUIDE });
 
-    const guideSection = INFO_BLOG_GUIDE
-      ? `[글쓰기 가이드 — 반드시 준수]\n${INFO_BLOG_GUIDE}\n\n`
-      : '';
-
-    const prompt = `${guideSection}
-[입력값]
+    const prompt = `[입력값]
 - 핵심 키워드: ${mainKeyword.trim()}
 - 보조 키워드: ${subKeywords?.trim() || '없음'}
 - 타겟 독자: ${targetReader?.trim() || '일반 독자'}
