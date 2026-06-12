@@ -220,10 +220,12 @@ app.post('/api/generate-info-blog', async (req, res) => {
       return m ? m[1].trim() : '';
     };
 
+    const linkSuggestion = extract('LINK_SUGGESTION');
     res.json({
       title: extract('TITLE'),
       body: extract('BODY'),
       hashtags: extract('HASHTAGS'),
+      ...(linkSuggestion && { linkSuggestion }),
     });
   } catch (err) {
     res.status(500).json({ error: friendlyGeminiError(err) });

@@ -115,6 +115,14 @@ export function getHTML() {
           <div class="result-tags-box" id="ibTagsOutput"></div>
         </div>
 
+        <div class="result-section hidden" id="ibLinkSuggestionSection">
+          <div class="result-label-row">
+            <span class="result-label">제휴 링크 추천</span>
+            <span class="result-hint">링크를 입력하지 않아서 AI가 추천해드려요</span>
+          </div>
+          <div class="ib-link-suggestion-box" id="ibLinkSuggestionOutput"></div>
+        </div>
+
       </section>
 
     </div>
@@ -141,6 +149,8 @@ export function mount() {
   const ibTitleOutput = document.getElementById('ibTitleOutput');
   const ibBodyOutput = document.getElementById('ibBodyOutput');
   const ibTagsOutput = document.getElementById('ibTagsOutput');
+  const ibLinkSuggestionSection = document.getElementById('ibLinkSuggestionSection');
+  const ibLinkSuggestionOutput = document.getElementById('ibLinkSuggestionOutput');
 
   if (apiKey) {
     ibApiConnected.classList.remove('hidden');
@@ -190,6 +200,13 @@ export function mount() {
         chip.addEventListener('click', () => copyText(chip.textContent, '태그'));
         ibTagsOutput.appendChild(chip);
       });
+
+      if (data.linkSuggestion) {
+        ibLinkSuggestionOutput.textContent = data.linkSuggestion;
+        ibLinkSuggestionSection.classList.remove('hidden');
+      } else {
+        ibLinkSuggestionSection.classList.add('hidden');
+      }
 
       ibResultCard.classList.remove('hidden');
     } catch (err) {

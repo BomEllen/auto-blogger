@@ -569,6 +569,12 @@ body {
   outline: none; word-break: break-word; white-space: pre-wrap;
 }
 .result-body-box:focus { border-color: var(--accent); background: var(--glass-hi); }
+.ib-link-suggestion-box {
+  padding: 16px 20px; border: 1px dashed var(--accent);
+  border-radius: var(--radius-sm); background: rgba(197,232,32,0.06);
+  font-size: 14px; color: var(--text); line-height: 1.8;
+  white-space: pre-wrap; word-break: break-word;
+}
 .photo-marker {
   display: inline-block; padding: 2px 8px;
   background: rgba(197,232,32,0.15); border: 1px dashed rgba(0,0,0,0.2);
