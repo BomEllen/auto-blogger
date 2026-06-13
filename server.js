@@ -337,10 +337,21 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
       : '';
 
     const samplesSection = STYLE_SAMPLES
-      ? `[참고할 실제 블로그 글 — 이 문체·어투·감성을 그대로 따라 쓰세요]\n\n${STYLE_SAMPLES}\n\n---`
+      ? `[실제 블로그 샘플 — 아래 글들의 말투·어미·문장부호를 그대로 모방해서 써야 합니다]
+특히 다음 표현을 반드시 사용하세요:
+- "요렇게", "요런", "요기" 같은 구어체 지시어
+- "ㅎㅎ", "ㅋㅋ", "ㅠㅠ", "ㅎㅅㅎ" 같은 자음 감정 표현 (문장 끝에 자연스럽게)
+- "~합니당", "~했어용", "~조음" 같은 부드러운 구어체 어미 (20~30% 비율로)
+- 마침표(.)는 거의 쓰지 않고 "~!", "~", "..." 로 대체
+- 짧고 툭툭 끊기는 문장 흐름
+
+${STYLE_SAMPLES}
+
+---
+위 샘플의 문체와 말투를 그대로 유지하면서, 아래 정보로 블로그 글을 작성하세요.`
       : '';
 
-    const prompt = `아래 정보를 바탕으로 완성된 네이버 블로그 리뷰 글을 작성하세요.
+    const prompt = `${samplesSection}
 
 ${fieldInfo}
 
@@ -349,10 +360,6 @@ ${memoBlock}
 [사진 분석 결과 — 총 ${photos.length}장, 목차별 분류 / 각 목차의 사진을 해당 섹션 본문에 순서대로 배치]
 ${photoBlockBySection}
 ${photoOrderNote}
-
----
-
-${samplesSection}
 `;
 
     const blogResult = await blogModel.generateContent(prompt);
