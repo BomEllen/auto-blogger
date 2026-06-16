@@ -198,6 +198,9 @@ export function getHTML() {
               <div class="field"><label>체크인</label><input type="text" name="checkin" placeholder="예) 15:00" /></div>
               <div class="field"><label>체크아웃</label><input type="text" name="checkout" placeholder="예) 11:00" /></div>
             </div>
+            <div class="field-row">
+              <div class="field field-full"><label>예약 링크 <span class="tag-optional">선택</span></label><input type="text" name="affiliateLink" placeholder="예) https://booking.com/... — AI가 글 안에 자연스럽게 넣어드려요" /></div>
+            </div>
           </div>
 
           <div class="field-group hidden" id="fields-etc">

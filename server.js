@@ -332,6 +332,12 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
     }).filter(Boolean).join('\n\n---\n\n');
 
     const memoBlock = memo ? `\n[반드시 포함할 내용 - 사용자가 직접 지정]\n${memo}\n` : '';
+
+    const affiliateLink = category === 'accommodation' ? (info.affiliateLink?.trim() || '') : '';
+    const affiliateLinkBlock = affiliateLink
+      ? `\n[삽입할 예약/제휴 링크: ${affiliateLink}]\n위 링크를 글 안에 1회만, 독자가 "나도 예약하고 싶다"는 마음이 차오른 직후 — 객실·부대시설 후기 섹션 이후의 자연스러운 위치에 삽입하세요. 링크 위치는 [링크: ${affiliateLink}] 마커로 표시. 광고체 금지, 1인칭 경험담에 자연스럽게 녹일 것.\n`
+      : '';
+
     const photoOrderNote = photos.length > 0
       ? `\n[사진 순서 절대 준수]\n사진 마커는 [사진1]부터 [사진${photos.length}]까지 반드시 이 순서대로만 삽입하세요. 내용에 따라 순서를 바꾸는 것은 금지입니다.\n`
       : '';
@@ -356,7 +362,7 @@ ${STYLE_SAMPLES}
 ${fieldInfo}
 
 별점: ${ratingNum}점 / 5점
-${memoBlock}
+${memoBlock}${affiliateLinkBlock}
 [사진 분석 결과 — 총 ${photos.length}장, 목차별 분류 / 각 목차의 사진을 해당 섹션 본문에 순서대로 배치]
 ${photoBlockBySection}
 ${photoOrderNote}
