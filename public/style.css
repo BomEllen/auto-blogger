@@ -721,6 +721,7 @@ body {
 }
 .section-title-input:focus { border-bottom-color: var(--accent); }
 .section-title-input::placeholder { color: var(--text-2); font-weight: 400; font-size: 13px; }
+.section-title-num { font-size: 14px; font-weight: 700; color: var(--text); flex-shrink: 0; }
 
 .section-count {
   font-size: 12px; color: var(--text-2); font-weight: 500;

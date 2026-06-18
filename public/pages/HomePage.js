@@ -625,10 +625,16 @@ export function mount() {
     header.className = 'section-card-header';
 
     if (section.fixed) {
-      const title = document.createElement('span');
-      title.className = 'section-title';
-      title.textContent = `${idx + 1}. ${section.name}`;
-      header.appendChild(title);
+      const numLabel = document.createElement('span');
+      numLabel.className = 'section-title-num';
+      numLabel.textContent = `${idx + 1}.`;
+      const input = document.createElement('input');
+      input.className = 'section-title-input';
+      input.type = 'text';
+      input.value = section.name;
+      input.addEventListener('input', () => { section.name = input.value; });
+      header.appendChild(numLabel);
+      header.appendChild(input);
     } else {
       const input = document.createElement('input');
       input.className = 'section-title-input';
