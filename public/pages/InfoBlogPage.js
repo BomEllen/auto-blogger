@@ -65,6 +65,26 @@ export function getHTML() {
           <input type="text" id="ibAffiliateLink" class="ib-input" placeholder="예) https://..." />
         </div>
 
+        <div class="ib-field">
+          <label class="ib-label">참고 링크</label>
+          <p class="ib-hint">AI가 글 쓰기 전에 참고할 URL (한 줄에 하나씩, 없으면 비워두세요)</p>
+          <textarea id="ibRefLinks" class="ib-textarea" rows="3"
+            placeholder="예) https://www.jma.go.jp/osaka-june&#10;https://..."></textarea>
+        </div>
+
+        <div class="ib-field">
+          <label class="ib-label">참고 이미지</label>
+          <p class="ib-hint">통계표·기사 캡처·데이터 사진 등 — AI가 읽고 글에 반영해드려요 (여러 장 가능)</p>
+          <div class="ib-ref-upload-zone" id="ibRefUploadZone">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="22" height="22">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+            </svg>
+            <span>클릭하거나 드래그해서 이미지 추가</span>
+            <input type="file" id="ibRefImageInput" accept="image/*" multiple hidden />
+          </div>
+          <div class="ib-ref-previews" id="ibRefPreviews"></div>
+        </div>
+
         <button class="btn-tg-generate" id="ibGenerateBtn" disabled>
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
@@ -132,6 +152,7 @@ export function getHTML() {
 
 export function mount() {
   const apiKey = sessionStorage.getItem('gemini_key');
+  let ibRefFiles = [];
 
   const ibApiConnected = document.getElementById('ibApiConnected');
   const ibApiMissing = document.getElementById('ibApiMissing');
@@ -141,6 +162,10 @@ export function mount() {
   const ibTargetReader = document.getElementById('ibTargetReader');
   const ibActualInfo = document.getElementById('ibActualInfo');
   const ibAffiliateLink = document.getElementById('ibAffiliateLink');
+  const ibRefLinks = document.getElementById('ibRefLinks');
+  const ibRefUploadZone = document.getElementById('ibRefUploadZone');
+  const ibRefImageInput = document.getElementById('ibRefImageInput');
+  const ibRefPreviews = document.getElementById('ibRefPreviews');
   const ibCharCount = document.getElementById('ibCharCount');
   const ibGenerateBtn = document.getElementById('ibGenerateBtn');
   const ibLoading = document.getElementById('ibLoading');
@@ -164,6 +189,39 @@ export function mount() {
     ibCharCount.textContent = ibActualInfo.value.length.toLocaleString();
   });
 
+  function renderRefPreviews() {
+    ibRefPreviews.innerHTML = '';
+    ibRefFiles.forEach((file, i) => {
+      const url = URL.createObjectURL(file);
+      const thumb = document.createElement('div');
+      thumb.className = 'ib-ref-thumb';
+      const img = document.createElement('img');
+      img.src = url;
+      img.onload = () => URL.revokeObjectURL(url);
+      const del = document.createElement('button');
+      del.className = 'ib-ref-thumb-del';
+      del.title = '삭제';
+      del.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>`;
+      del.addEventListener('click', () => { ibRefFiles.splice(i, 1); renderRefPreviews(); });
+      thumb.append(img, del);
+      ibRefPreviews.appendChild(thumb);
+    });
+  }
+
+  ibRefUploadZone.addEventListener('click', () => ibRefImageInput.click());
+  ibRefUploadZone.addEventListener('dragover', (e) => { e.preventDefault(); ibRefUploadZone.classList.add('drag-over'); });
+  ibRefUploadZone.addEventListener('dragleave', () => ibRefUploadZone.classList.remove('drag-over'));
+  ibRefUploadZone.addEventListener('drop', (e) => {
+    e.preventDefault(); ibRefUploadZone.classList.remove('drag-over');
+    ibRefFiles.push(...Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')));
+    renderRefPreviews();
+  });
+  ibRefImageInput.addEventListener('change', () => {
+    ibRefFiles.push(...Array.from(ibRefImageInput.files));
+    ibRefImageInput.value = '';
+    renderRefPreviews();
+  });
+
   ibGenerateBtn.addEventListener('click', async () => {
     const mainKeyword = ibMainKeyword.value.trim();
     const actualInfo = ibActualInfo.value.trim();
@@ -175,16 +233,19 @@ export function mount() {
     ibGenerateBtn.disabled = true;
 
     try {
+      const fd = new FormData();
+      fd.append('mainKeyword', mainKeyword);
+      fd.append('subKeywords', ibSubKeywords.value);
+      fd.append('targetReader', ibTargetReader.value);
+      fd.append('actualInfo', actualInfo);
+      fd.append('affiliateLink', ibAffiliateLink.value);
+      fd.append('refLinks', ibRefLinks.value);
+      ibRefFiles.forEach(f => fd.append('refImages', f));
+
       const res = await fetch('/api/generate-info-blog', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-        body: JSON.stringify({
-          mainKeyword,
-          subKeywords: ibSubKeywords.value,
-          targetReader: ibTargetReader.value,
-          actualInfo,
-          affiliateLink: ibAffiliateLink.value,
-        }),
+        headers: { 'x-api-key': apiKey },
+        body: fd,
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '글 생성에 실패했어요.');

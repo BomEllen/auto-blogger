@@ -192,16 +192,43 @@ try {
   // 파일 없으면 무시
 }
 
-app.post('/api/generate-info-blog', async (req, res) => {
+app.post('/api/generate-info-blog', upload.array('refImages', 10), async (req, res) => {
   const apiKey = req.headers['x-api-key'];
   if (!apiKey) return res.status(400).json({ error: 'API 키가 필요합니다.' });
 
-  const { mainKeyword, subKeywords, targetReader, actualInfo, affiliateLink } = req.body;
+  const { mainKeyword, subKeywords, targetReader, actualInfo, affiliateLink, refLinks } = req.body;
+  const refImages = req.files || [];
+
   if (!mainKeyword?.trim()) return res.status(400).json({ error: '핵심 키워드를 입력해주세요.' });
   if (!actualInfo?.trim()) return res.status(400).json({ error: '실제 정보를 입력해주세요.' });
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
+
+    // 참고 자료 처리
+    let refSection = '';
+    const refParts = [];
+    if (refLinks?.trim()) {
+      refParts.push(`[참고 링크]\n${refLinks.trim()}`);
+    }
+    if (refImages.length > 0) {
+      const refModel = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+      const analyses = await Promise.all(refImages.map(async (img, i) => {
+        try {
+          const result = await refModel.generateContent([
+            imagePart(img),
+            '이 이미지에서 블로그 글 작성에 참고할 수 있는 정보, 수치, 사실을 추출하세요. 핵심 정보만 2~3문장으로 요약하세요.',
+          ]);
+          return `참고 이미지 ${i + 1}: ${result.response.text().trim()}`;
+        } catch { return null; }
+      }));
+      const valid = analyses.filter(Boolean);
+      if (valid.length > 0) refParts.push(`[참고 이미지 분석]\n${valid.join('\n\n')}`);
+    }
+    if (refParts.length > 0) {
+      refSection = `\n[참고 자료 — 아래 내용을 활용해 글의 정확성과 정보량을 높이세요]\n${refParts.join('\n\n')}\n`;
+    }
+
     const model = genAI.getGenerativeModel({ model: GEMINI_MODEL, systemInstruction: INFO_BLOG_GUIDE });
 
     const prompt = `[입력값]
@@ -210,7 +237,7 @@ app.post('/api/generate-info-blog', async (req, res) => {
 - 타겟 독자: ${targetReader?.trim() || '일반 독자'}
 - 실제 정보 (경험/사진 내용): ${actualInfo.trim()}
 - 삽입할 제휴 링크: ${affiliateLink?.trim() || '없음'}
-`;
+${refSection}`;
 
     const result = await model.generateContent(prompt);
     const text = result.response.text().trim();
