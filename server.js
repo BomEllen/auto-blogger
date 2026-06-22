@@ -369,6 +369,10 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
       ? `\n[사진 순서 절대 준수]\n사진 마커는 [사진1]부터 [사진${photos.length}]까지 반드시 이 순서대로만 삽입하세요. 내용에 따라 순서를 바꾸는 것은 금지입니다.\n`
       : '';
 
+    const sectionListBlock = sectionNames.length > 0
+      ? `\n[목차 구성 — 아래 이름을 본문 목차와 각 섹션 제목으로 반드시 그대로 사용하세요]\n${sectionNames.map((n, i) => `${i + 1}. ${n}`).join('\n')}\n`
+      : '';
+
     const samplesSection = STYLE_SAMPLES
       ? `[실제 블로그 샘플 — 아래 글들의 말투·어미·문장부호를 그대로 모방해서 써야 합니다]
 특히 다음 표현을 반드시 사용하세요:
@@ -389,7 +393,7 @@ ${STYLE_SAMPLES}
 ${fieldInfo}
 
 별점: ${ratingNum}점 / 5점
-${memoBlock}${affiliateLinkBlock}
+${memoBlock}${affiliateLinkBlock}${sectionListBlock}
 [사진 분석 결과 — 총 ${photos.length}장, 목차별 분류 / 각 목차의 사진을 해당 섹션 본문에 순서대로 배치]
 ${photoBlockBySection}
 ${photoOrderNote}
