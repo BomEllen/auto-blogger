@@ -117,6 +117,28 @@ function imagePart(file) {
   return { inlineData: { data: file.buffer.toString('base64'), mimeType: file.mimetype || 'image/jpeg' } };
 }
 
+function isRetryable(err) {
+  const msg = err?.message || String(err);
+  return msg.includes('503')
+    || msg.toLowerCase().includes('high demand')
+    || msg.toLowerCase().includes('overloaded')
+    || msg.toLowerCase().includes('service unavailable');
+}
+
+async function withRetry(fn, maxRetries = 3, baseDelayMs = 2000, onRetry) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (!isRetryable(err) || attempt === maxRetries) throw err;
+      const delay = baseDelayMs * Math.pow(2, attempt);
+      console.log(`[retry] ${attempt + 1}/${maxRetries} — ${delay}ms 후 재시도`);
+      if (onRetry) onRetry(attempt + 1);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+}
+
 function friendlyGeminiError(err) {
   const msg = err?.message || String(err);
   if (msg.includes('503') || msg.toLowerCase().includes('high demand') || msg.toLowerCase().includes('overloaded') || msg.toLowerCase().includes('service unavailable')) {
@@ -177,7 +199,7 @@ app.post('/api/generate-title', async (req, res) => {
 ${body.substring(0, 3000)}
 
 제목만 출력하세요. 다른 설명 없이 제목 텍스트만.`;
-    const result = await model.generateContent(prompt);
+    const result = await withRetry(() => model.generateContent(prompt));
     res.json({ title: result.response.text().trim() });
   } catch (err) {
     res.status(500).json({ error: friendlyGeminiError(err) });
@@ -215,10 +237,10 @@ app.post('/api/generate-info-blog', upload.array('refImages', 10), async (req, r
       const refModel = genAI.getGenerativeModel({ model: GEMINI_MODEL });
       const analyses = await Promise.all(refImages.map(async (img, i) => {
         try {
-          const result = await refModel.generateContent([
+          const result = await withRetry(() => refModel.generateContent([
             imagePart(img),
             '이 이미지에서 블로그 글 작성에 참고할 수 있는 정보, 수치, 사실을 추출하세요. 핵심 정보만 2~3문장으로 요약하세요.',
-          ]);
+          ]));
           return `참고 이미지 ${i + 1}: ${result.response.text().trim()}`;
         } catch { return null; }
       }));
@@ -247,7 +269,7 @@ app.post('/api/generate-info-blog', upload.array('refImages', 10), async (req, r
 ${searchTopics.trim()}
 
 각 항목별로 사실 위주로 간결하게 정리하세요. 불확실한 정보는 포함하지 마세요.`;
-        const searchResult = await searchModel.generateContent(searchPrompt);
+        const searchResult = await withRetry(() => searchModel.generateContent(searchPrompt));
         const fetched = searchResult.response.text().trim();
         if (fetched) {
           searchedInfoSection = `\n[검색된 최신 정보 — 아래 내용을 글에 정확하게 반영하세요]\n${fetched}\n`;
@@ -267,7 +289,7 @@ ${searchTopics.trim()}
 - 삽입할 제휴 링크: ${affiliateLink?.trim() || '없음'}
 ${refSection}${searchedInfoSection}`;
 
-    const result = await model.generateContent(prompt);
+    const result = await withRetry(() => model.generateContent(prompt));
     const text = result.response.text().trim();
 
     const extract = (tag) => {
@@ -304,7 +326,7 @@ app.post('/api/extract-info', upload.single('photo'), async (req, res) => {
 
     const fields = getExtractionFields(category);
     const prompt = `이 이미지에서 ${getCategoryName(category)} 장소 정보를 추출하세요.\n아래 JSON 형식으로만 반환하세요:\n${fields}\n\n찾을 수 없는 항목은 "" (빈 문자열)로 표시하세요.`;
-    const result = await model.generateContent([imagePart(req.file), prompt]);
+    const result = await withRetry(() => model.generateContent([imagePart(req.file), prompt]));
 
     const rawText = result.response.text().trim();
     console.log('[extract-info] raw:', rawText.substring(0, 300));
@@ -359,14 +381,14 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
       for (const photo of group.photos) {
         send({ type: 'progress', current: globalIdx, total: photos.length });
         try {
-          const result = await descModel.generateContent([
+          const result = await withRetry(() => descModel.generateContent([
             imagePart(photo),
             `이 사진에서 블로그 리뷰에 쓸 내용을 추출하세요.
 장르: ${categoryName} 리뷰 / 목차: ${group.name}
 - 사진에 보이는 것을 구체적으로 파악하세요 (메뉴명, 색감, 구조, 특징 등)
 - 단순 묘사가 아닌 방문자가 느낄 실용적 팁·장단점으로 확장하세요
 - 2~3문장, 설명만 작성하세요`,
-          ]);
+          ]));
           photoDescriptions.push({ index: globalIdx, section: group.name, desc: result.response.text().trim() });
         } catch {
           photoDescriptions.push({ index: globalIdx, section: group.name, desc: `${globalIdx}번째 사진` });
@@ -427,7 +449,11 @@ ${photoBlockBySection}
 ${photoOrderNote}
 `;
 
-    const blogResult = await blogModel.generateContent(prompt);
+    const blogResult = await withRetry(
+      () => blogModel.generateContent(prompt),
+      3, 2000,
+      (attempt) => send({ type: 'status', message: `AI 서버가 바빠서 재시도 중... (${attempt}/3)` })
+    );
     let parsed = parseBlogResponse(blogResult.response.text());
 
     const violations = validateBlogOutput(parsed, photos.length);
@@ -435,7 +461,7 @@ ${photoOrderNote}
       console.log('[validate] 위반 감지:', violations);
       send({ type: 'status', message: '규칙 검수 중 — 자동 수정...' });
       const retryPrompt = `[규칙 위반 수정]\n다음 항목이 지켜지지 않았습니다:\n${violations.map((v) => `- ${v}`).join('\n')}\n\n위 항목만 고쳐서 전체 글을 다시 동일한 [TITLE][BODY][HASHTAGS] 형식으로 출력하세요.\n\n---\n\n${prompt}`;
-      const retryResult = await blogModel.generateContent(retryPrompt);
+      const retryResult = await withRetry(() => blogModel.generateContent(retryPrompt));
       parsed = parseBlogResponse(retryResult.response.text());
     }
 
