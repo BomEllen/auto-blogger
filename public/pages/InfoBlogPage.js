@@ -52,6 +52,13 @@ export function getHTML() {
         </div>
 
         <div class="ib-field">
+          <label class="ib-label">검색해서 넣을 정보 항목</label>
+          <p class="ib-hint">AI가 오늘 날짜 기준으로 직접 검색해서 글에 반영해드려요 (없으면 비워두세요)</p>
+          <textarea id="ibSearchTopics" class="ib-textarea" rows="4"
+            placeholder="예) 축제별 핵심 볼거리와 시작 시간&#10;불꽃축제 유료 관람석 예약 여부, 무료 명당 포인트&#10;유카타 대여 위치와 가격대"></textarea>
+        </div>
+
+        <div class="ib-field">
           <label class="ib-label">실제 정보 <span class="req">*</span></label>
           <p class="ib-hint">직접 경험한 내용이나 사진에서 뽑은 정보를 자유롭게 적어주세요</p>
           <textarea id="ibActualInfo" class="ib-textarea" rows="8"
@@ -162,6 +169,7 @@ export function mount() {
   const ibTargetReader = document.getElementById('ibTargetReader');
   const ibActualInfo = document.getElementById('ibActualInfo');
   const ibAffiliateLink = document.getElementById('ibAffiliateLink');
+  const ibSearchTopics = document.getElementById('ibSearchTopics');
   const ibRefLinks = document.getElementById('ibRefLinks');
   const ibRefUploadZone = document.getElementById('ibRefUploadZone');
   const ibRefImageInput = document.getElementById('ibRefImageInput');
@@ -237,6 +245,7 @@ export function mount() {
       fd.append('mainKeyword', mainKeyword);
       fd.append('subKeywords', ibSubKeywords.value);
       fd.append('targetReader', ibTargetReader.value);
+      fd.append('searchTopics', ibSearchTopics.value);
       fd.append('actualInfo', actualInfo);
       fd.append('affiliateLink', ibAffiliateLink.value);
       fd.append('refLinks', ibRefLinks.value);

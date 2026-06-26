@@ -196,7 +196,7 @@ app.post('/api/generate-info-blog', upload.array('refImages', 10), async (req, r
   const apiKey = req.headers['x-api-key'];
   if (!apiKey) return res.status(400).json({ error: 'API 키가 필요합니다.' });
 
-  const { mainKeyword, subKeywords, targetReader, actualInfo, affiliateLink, refLinks } = req.body;
+  const { mainKeyword, subKeywords, targetReader, searchTopics, actualInfo, affiliateLink, refLinks } = req.body;
   const refImages = req.files || [];
 
   if (!mainKeyword?.trim()) return res.status(400).json({ error: '핵심 키워드를 입력해주세요.' });
@@ -229,6 +229,34 @@ app.post('/api/generate-info-blog', upload.array('refImages', 10), async (req, r
       refSection = `\n[참고 자료 — 아래 내용을 활용해 글의 정확성과 정보량을 높이세요]\n${refParts.join('\n\n')}\n`;
     }
 
+    // 검색 항목이 있으면 Google Search grounding으로 최신 정보 조회
+    let searchedInfoSection = '';
+    if (searchTopics?.trim()) {
+      try {
+        const today = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+        const searchModel = genAI.getGenerativeModel({
+          model: GEMINI_MODEL,
+          tools: [{ googleSearch: {} }],
+        });
+        const searchPrompt = `오늘 날짜: ${today}
+주제 맥락: ${mainKeyword.trim()}
+
+아래 항목들에 대해 오늘 날짜 기준 최신·정확한 정보를 조사해주세요.
+
+조사 항목:
+${searchTopics.trim()}
+
+각 항목별로 사실 위주로 간결하게 정리하세요. 불확실한 정보는 포함하지 마세요.`;
+        const searchResult = await searchModel.generateContent(searchPrompt);
+        const fetched = searchResult.response.text().trim();
+        if (fetched) {
+          searchedInfoSection = `\n[검색된 최신 정보 — 아래 내용을 글에 정확하게 반영하세요]\n${fetched}\n`;
+        }
+      } catch (err) {
+        console.error('[search] Google Search 실패:', err.message);
+      }
+    }
+
     const model = genAI.getGenerativeModel({ model: GEMINI_MODEL, systemInstruction: INFO_BLOG_GUIDE });
 
     const prompt = `[입력값]
@@ -237,7 +265,7 @@ app.post('/api/generate-info-blog', upload.array('refImages', 10), async (req, r
 - 타겟 독자: ${targetReader?.trim() || '일반 독자'}
 - 실제 정보 (경험/사진 내용): ${actualInfo.trim()}
 - 삽입할 제휴 링크: ${affiliateLink?.trim() || '없음'}
-${refSection}`;
+${refSection}${searchedInfoSection}`;
 
     const result = await model.generateContent(prompt);
     const text = result.response.text().trim();
