@@ -152,6 +152,19 @@ async function withFallback(primaryFn, fallbackFn) {
   }
 }
 
+async function withConcurrency(tasks, concurrency, fn) {
+  const results = new Array(tasks.length);
+  let next = 0;
+  async function worker() {
+    while (next < tasks.length) {
+      const i = next++;
+      results[i] = await fn(tasks[i]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, worker));
+  return results;
+}
+
 function friendlyGeminiError(err) {
   const msg = err?.message || String(err);
   if (msg.includes('503') || msg.toLowerCase().includes('high demand') || msg.toLowerCase().includes('overloaded') || msg.toLowerCase().includes('service unavailable')) {
@@ -401,7 +414,7 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
     if (sectionGroups.length === 0) sectionGroups.push({ name: '전체', photos });
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const descModel = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+    const descModel = genAI.getGenerativeModel({ model: FALLBACK_MODEL });
     const blogModel = genAI.getGenerativeModel({ model: GEMINI_MODEL, systemInstruction: STYLE_GUIDE });
 
     send({ type: 'status', message: `사진 ${photos.length}장 분석 중...` });
@@ -417,7 +430,7 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
     }
 
     let completed = 0;
-    const photoDescriptions = await Promise.all(allPhotoTasks.map(async ({ photo, group, index }) => {
+    const photoDescriptions = await withConcurrency(allPhotoTasks, 6, async ({ photo, group, index }) => {
       try {
         const result = await withRetry(() => descModel.generateContent([
           imagePart(photo),
@@ -435,8 +448,7 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
         send({ type: 'progress', current: completed, total: allPhotoTasks.length });
         return { index, section: group.name, desc: `${index}번째 사진` };
       }
-    }));
-    photoDescriptions.sort((a, b) => a.index - b.index);
+    });
 
     send({ type: 'status', message: '블로그 글 작성 중...' });
 
