@@ -461,7 +461,7 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
       return `[${group.name}]\n${groupPhotos.map(p => `[사진${p.index}] ${p.desc}`).join('\n\n')}`;
     }).filter(Boolean).join('\n\n---\n\n');
 
-    const memoBlock = memo ? `\n[반드시 포함할 내용 - 사용자가 직접 지정]\n${memo}\n` : '';
+    const memoBlock = memo ? `\n[반드시 포함할 내용 - 사용자가 직접 지정]\n${memo}\n\n★ 배치 규칙: 위 내용을 총평에 몰아 넣지 마세요. 각 내용이 어울리는 사진 섹션을 먼저 찾아서 해당 본문 안에 자연스럽게 녹여내세요. 어떤 섹션에도 어울리지 않는 내용만 총평에 넣는 것을 허용합니다.\n` : '';
 
     const affiliateLink = category === 'accommodation' ? (info.affiliateLink?.trim() || '') : '';
     const affiliateLinkBlock = affiliateLink
