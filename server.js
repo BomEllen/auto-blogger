@@ -406,28 +406,37 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
 
     send({ type: 'status', message: `사진 ${photos.length}장 분석 중...` });
 
-    // 사진 설명 — 한 장씩 순차 처리 (메모리 효율)
-    const photoDescriptions = [];
+    // 사진 설명 — 병렬 처리
+    const allPhotoTasks = [];
     let globalIdx = 1;
     for (const group of sectionGroups) {
       for (const photo of group.photos) {
-        send({ type: 'progress', current: globalIdx, total: photos.length });
-        try {
-          const result = await withRetry(() => descModel.generateContent([
-            imagePart(photo),
-            `이 사진에서 블로그 리뷰에 쓸 내용을 추출하세요.
+        allPhotoTasks.push({ photo, group, index: globalIdx });
+        globalIdx++;
+      }
+    }
+
+    let completed = 0;
+    const photoDescriptions = await Promise.all(allPhotoTasks.map(async ({ photo, group, index }) => {
+      try {
+        const result = await withRetry(() => descModel.generateContent([
+          imagePart(photo),
+          `이 사진에서 블로그 리뷰에 쓸 내용을 추출하세요.
 장르: ${categoryName} 리뷰 / 목차: ${group.name}
 - 사진에 보이는 것을 구체적으로 파악하세요 (메뉴명, 색감, 구조, 특징 등)
 - 단순 묘사가 아닌 방문자가 느낄 실용적 팁·장단점으로 확장하세요
 - 2~3문장, 설명만 작성하세요`,
-          ]));
-          photoDescriptions.push({ index: globalIdx, section: group.name, desc: result.response.text().trim() });
-        } catch {
-          photoDescriptions.push({ index: globalIdx, section: group.name, desc: `${globalIdx}번째 사진` });
-        }
-        globalIdx++;
+        ]));
+        completed++;
+        send({ type: 'progress', current: completed, total: allPhotoTasks.length });
+        return { index, section: group.name, desc: result.response.text().trim() };
+      } catch {
+        completed++;
+        send({ type: 'progress', current: completed, total: allPhotoTasks.length });
+        return { index, section: group.name, desc: `${index}번째 사진` };
       }
-    }
+    }));
+    photoDescriptions.sort((a, b) => a.index - b.index);
 
     send({ type: 'status', message: '블로그 글 작성 중...' });
 
