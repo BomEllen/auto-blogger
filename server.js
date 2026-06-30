@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const FALLBACK_MODEL = 'gemini-2.5-flash-lite';
 
 let STYLE_SAMPLES = '';
 try {
@@ -125,17 +126,29 @@ function isRetryable(err) {
     || msg.toLowerCase().includes('service unavailable');
 }
 
-async function withRetry(fn, maxRetries = 3, baseDelayMs = 2000, onRetry) {
+async function withRetry(fn, maxRetries = 5, baseDelayMs = 3000, onRetry) {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
     } catch (err) {
       if (!isRetryable(err) || attempt === maxRetries) throw err;
-      const delay = baseDelayMs * Math.pow(2, attempt);
+      const delay = Math.min(baseDelayMs * Math.pow(2, attempt), 30000);
       console.log(`[retry] ${attempt + 1}/${maxRetries} — ${delay}ms 후 재시도`);
       if (onRetry) onRetry(attempt + 1);
       await new Promise(r => setTimeout(r, delay));
     }
+  }
+}
+
+async function withFallback(primaryFn, fallbackFn) {
+  try {
+    return await primaryFn();
+  } catch (err) {
+    if (isRetryable(err) && fallbackFn) {
+      console.log(`[fallback] 과부하 지속 → ${FALLBACK_MODEL} 전환`);
+      return await fallbackFn();
+    }
+    throw err;
   }
 }
 
@@ -199,7 +212,13 @@ app.post('/api/generate-title', async (req, res) => {
 ${body.substring(0, 3000)}
 
 제목만 출력하세요. 다른 설명 없이 제목 텍스트만.`;
-    const result = await withRetry(() => model.generateContent(prompt));
+    const result = await withFallback(
+      () => withRetry(() => model.generateContent(prompt)),
+      () => {
+        const fb = genAI.getGenerativeModel({ model: FALLBACK_MODEL });
+        return withRetry(() => fb.generateContent(prompt), 3, 2000);
+      }
+    );
     res.json({ title: result.response.text().trim() });
   } catch (err) {
     res.status(500).json({ error: friendlyGeminiError(err) });
@@ -289,7 +308,13 @@ ${searchTopics.trim()}
 - 삽입할 제휴 링크: ${affiliateLink?.trim() || '없음'}
 ${refSection}${searchedInfoSection}`;
 
-    const result = await withRetry(() => model.generateContent(prompt));
+    const result = await withFallback(
+      () => withRetry(() => model.generateContent(prompt)),
+      () => {
+        const fb = genAI.getGenerativeModel({ model: FALLBACK_MODEL, systemInstruction: INFO_BLOG_GUIDE });
+        return withRetry(() => fb.generateContent(prompt), 3, 2000);
+      }
+    );
     const text = result.response.text().trim();
 
     const extract = (tag) => {
@@ -326,7 +351,14 @@ app.post('/api/extract-info', upload.single('photo'), async (req, res) => {
 
     const fields = getExtractionFields(category);
     const prompt = `이 이미지에서 ${getCategoryName(category)} 장소 정보를 추출하세요.\n아래 JSON 형식으로만 반환하세요:\n${fields}\n\n찾을 수 없는 항목은 "" (빈 문자열)로 표시하세요.`;
-    const result = await withRetry(() => model.generateContent([imagePart(req.file), prompt]));
+    const content = [imagePart(req.file), prompt];
+    const result = await withFallback(
+      () => withRetry(() => model.generateContent(content)),
+      () => {
+        const fb = genAI.getGenerativeModel({ model: FALLBACK_MODEL, generationConfig: { responseMimeType: 'application/json' } });
+        return withRetry(() => fb.generateContent(content), 3, 2000);
+      }
+    );
 
     const rawText = result.response.text().trim();
     console.log('[extract-info] raw:', rawText.substring(0, 300));
@@ -449,10 +481,21 @@ ${photoBlockBySection}
 ${photoOrderNote}
 `;
 
-    const blogResult = await withRetry(
-      () => blogModel.generateContent(prompt),
-      3, 2000,
-      (attempt) => send({ type: 'status', message: `AI 서버가 바빠서 재시도 중... (${attempt}/3)` })
+    const blogResult = await withFallback(
+      () => withRetry(
+        () => blogModel.generateContent(prompt),
+        5, 3000,
+        (attempt) => send({ type: 'status', message: `AI 서버가 바빠서 재시도 중... (${attempt}/5)` })
+      ),
+      () => {
+        send({ type: 'status', message: 'AI 서버 과부하 — 대체 모델로 전환 중...' });
+        const fbModel = genAI.getGenerativeModel({ model: FALLBACK_MODEL, systemInstruction: STYLE_GUIDE });
+        return withRetry(
+          () => fbModel.generateContent(prompt),
+          3, 2000,
+          (attempt) => send({ type: 'status', message: `대체 모델 재시도 중... (${attempt}/3)` })
+        );
+      }
     );
     let parsed = parseBlogResponse(blogResult.response.text());
 
@@ -461,7 +504,13 @@ ${photoOrderNote}
       console.log('[validate] 위반 감지:', violations);
       send({ type: 'status', message: '규칙 검수 중 — 자동 수정...' });
       const retryPrompt = `[규칙 위반 수정]\n다음 항목이 지켜지지 않았습니다:\n${violations.map((v) => `- ${v}`).join('\n')}\n\n위 항목만 고쳐서 전체 글을 다시 동일한 [TITLE][BODY][HASHTAGS] 형식으로 출력하세요.\n\n---\n\n${prompt}`;
-      const retryResult = await withRetry(() => blogModel.generateContent(retryPrompt));
+      const retryResult = await withFallback(
+        () => withRetry(() => blogModel.generateContent(retryPrompt)),
+        () => {
+          const fbModel = genAI.getGenerativeModel({ model: FALLBACK_MODEL, systemInstruction: STYLE_GUIDE });
+          return withRetry(() => fbModel.generateContent(retryPrompt), 3, 2000);
+        }
+      );
       parsed = parseBlogResponse(retryResult.response.text());
     }
 
