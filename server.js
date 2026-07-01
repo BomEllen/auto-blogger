@@ -397,21 +397,13 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
   const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
   try {
-    const { category, rating, memo, sectionNames: rawSectionNames, sectionCounts: rawSectionCounts, ...info } = req.body;
+    const { category, rating, memo, sectionNames: rawSectionNames, ...info } = req.body;
     const photos = req.files || [];
     const categoryName = getCategoryName(category);
 
-    // 섹션별 사진 그룹 재구성
+    // AI가 사진별 목차를 자동 분류
     const sectionNames = JSON.parse(rawSectionNames || '[]');
-    const sectionCounts = JSON.parse(rawSectionCounts || '[]');
-    const sectionGroups = [];
-    let photoOffset = 0;
-    sectionNames.forEach((name, i) => {
-      const count = sectionCounts[i] || 0;
-      sectionGroups.push({ name, photos: photos.slice(photoOffset, photoOffset + count) });
-      photoOffset += count;
-    });
-    if (sectionGroups.length === 0) sectionGroups.push({ name: '전체', photos });
+    const effectiveSections = sectionNames.length > 0 ? sectionNames : ['전체'];
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const descModel = genAI.getGenerativeModel({ model: FALLBACK_MODEL });
@@ -419,34 +411,44 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
 
     send({ type: 'status', message: `사진 ${photos.length}장 분석 중...` });
 
-    // 사진 설명 — 병렬 처리
-    const allPhotoTasks = [];
-    let globalIdx = 1;
-    for (const group of sectionGroups) {
-      for (const photo of group.photos) {
-        allPhotoTasks.push({ photo, group, index: globalIdx });
-        globalIdx++;
-      }
-    }
+    // 사진 설명 — 병렬 처리 (AI가 목차 자동 배정)
+    const allPhotoTasks = photos.map((photo, i) => ({ photo, index: i + 1 }));
 
     let completed = 0;
-    const photoDescriptions = await withConcurrency(allPhotoTasks, 6, async ({ photo, group, index }) => {
+    const photoDescriptions = await withConcurrency(allPhotoTasks, 6, async ({ photo, index }) => {
       try {
         const result = await withRetry(() => descModel.generateContent([
           imagePart(photo),
-          `이 사진에서 블로그 리뷰에 쓸 내용을 추출하세요.
-장르: ${categoryName} 리뷰 / 목차: ${group.name}
+          `이 사진을 분석해서 아래 목차 중 가장 어울리는 목차를 고르고, 블로그 리뷰 설명을 작성하세요.
+장르: ${categoryName} 리뷰
+목차 목록: ${effectiveSections.join(' / ')}
+
+아래 JSON 형식으로만 답하세요:
+{"section": "목차명", "desc": "설명"}
+
+- section은 위 목차 목록 중 하나를 정확히 그대로 쓸 것
 - 사진에 보이는 것을 구체적으로 파악하세요 (메뉴명, 색감, 구조, 특징 등)
 - 단순 묘사가 아닌 방문자가 느낄 실용적 팁·장단점으로 확장하세요
-- 2~3문장, 설명만 작성하세요`,
+- desc는 2~3문장으로 작성하세요`,
         ]));
         completed++;
         send({ type: 'progress', current: completed, total: allPhotoTasks.length });
-        return { index, section: group.name, desc: result.response.text().trim() };
+        const rawJson = result.response.text().trim();
+        const jm = rawJson.match(/\{[\s\S]*\}/);
+        let section = effectiveSections[0];
+        let desc = `${index}번째 사진`;
+        if (jm) {
+          try {
+            const p = JSON.parse(jm[0]);
+            if (p.section && effectiveSections.includes(p.section)) section = p.section;
+            if (p.desc) desc = p.desc;
+          } catch {}
+        }
+        return { index, section, desc };
       } catch {
         completed++;
         send({ type: 'progress', current: completed, total: allPhotoTasks.length });
-        return { index, section: group.name, desc: `${index}번째 사진` };
+        return { index, section: effectiveSections[0], desc: `${index}번째 사진` };
       }
     });
 
@@ -455,10 +457,10 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
     const ratingNum = parseFloat(rating) || 4.5;
     const fieldInfo = buildCategoryInfoText(category, info);
 
-    const photoBlockBySection = sectionGroups.map(group => {
-      const groupPhotos = photoDescriptions.filter(p => p.section === group.name);
+    const photoBlockBySection = effectiveSections.map(name => {
+      const groupPhotos = photoDescriptions.filter(p => p.section === name);
       if (groupPhotos.length === 0) return null;
-      return `[${group.name}]\n${groupPhotos.map(p => `[사진${p.index}] ${p.desc}`).join('\n\n')}`;
+      return `[${name}]\n${groupPhotos.map(p => `[사진${p.index}] ${p.desc}`).join('\n\n')}`;
     }).filter(Boolean).join('\n\n---\n\n');
 
     const memoBlock = memo ? `\n[반드시 포함할 내용 - 사용자가 직접 지정]\n${memo}\n\n★ 배치 규칙: 위 내용을 총평에 몰아 넣지 마세요. 각 내용이 어울리는 사진 섹션을 먼저 찾아서 해당 본문 안에 자연스럽게 녹여내세요. 어떤 섹션에도 어울리지 않는 내용만 총평에 넣는 것을 허용합니다.\n` : '';
@@ -472,9 +474,7 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
       ? `\n[사진 순서 절대 준수]\n사진 마커는 [사진1]부터 [사진${photos.length}]까지 반드시 이 순서대로만 삽입하세요. 내용에 따라 순서를 바꾸는 것은 금지입니다.\n`
       : '';
 
-    const sectionListBlock = sectionNames.length > 0
-      ? `\n[목차 구성 — 아래 이름을 본문 목차와 각 섹션 제목으로 반드시 그대로 사용하세요]\n${sectionNames.map((n, i) => `${i + 1}. ${n}`).join('\n')}\n`
-      : '';
+    const sectionListBlock = `\n[목차 구성 — 아래 이름을 본문 목차와 각 섹션 제목으로 반드시 그대로 사용하세요]\n${effectiveSections.map((n, i) => `${i + 1}. ${n}`).join('\n')}\n`;
 
     const samplesSection = STYLE_SAMPLES
       ? `[실제 블로그 샘플 — 아래 글들의 말투·어미·문장부호를 그대로 모방해서 써야 합니다]

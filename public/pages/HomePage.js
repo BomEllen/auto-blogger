@@ -249,13 +249,30 @@ export function getHTML() {
         <!-- Step 3 -->
         <section class="card step-card step-card-photos">
           <div class="step-label">STEP 3</div>
-          <h2 class="step-title">리뷰 사진 업로드</h2>
-          <p class="step-desc">목차별로 사진을 올려주세요 · JPG, PNG, WEBP · 장당 10MB</p>
+          <h2 class="step-title">목차 설정 & 사진 업로드</h2>
+          <p class="step-desc">목차를 확인하고 사진을 올리면 AI가 자동으로 목차별 배치해요 · JPG, PNG, WEBP · 장당 10MB</p>
+
+          <p class="field-label" style="margin-bottom: 10px;">목차</p>
           <div id="sectionsContainer" class="sections-container"></div>
           <button class="btn-add-section" id="addSectionBtn">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
             목차 추가
           </button>
+
+          <div class="section-divider"><span>사진 업로드</span></div>
+
+          <div class="upload-zone" id="photoUploadZone">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="upload-icon"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
+            <p class="upload-main">클릭하거나 드래그해서 사진 추가</p>
+            <p class="upload-sub">JPG, PNG, WEBP · 장당 10MB · AI가 목차별로 자동 배치해요</p>
+            <input type="file" id="photoInput" multiple accept="image/*" hidden />
+          </div>
+
+          <div class="photo-count-bar" id="photoCountBar" style="display:none">
+            <span class="photo-count-text" id="photoCountText">0장 선택됨</span>
+            <button class="btn-text-danger" id="clearPhotosBtn">모두 지우기</button>
+          </div>
+          <div class="photo-grid" id="photoPoolGrid"></div>
         </section>
 
         <!-- Generate -->
@@ -327,10 +344,10 @@ export function mount() {
   let selectedCategory = 'cafe';
   let selectedRating = 4.5;
   let sections = [];
+  let allPhotos = [];
+  let resultPhotoUrls = [];
   let connectedApiKey = '';
   let rawBodyText = '';
-  let dragSrcIndex = null;
-  let dragSrcSection = null;
   let lightboxObjectUrl = null;
   const thumbnailCache = new Map();
 
@@ -359,11 +376,7 @@ export function mount() {
 
   /* ── 썸네일 ── */
   function initSections(category) {
-    sections.forEach(s => s.photos.forEach(f => {
-      const u = thumbnailCache.get(f);
-      if (u) { URL.revokeObjectURL(u); thumbnailCache.delete(f); }
-    }));
-    sections = (CATEGORY_SECTIONS[category] || []).map(name => ({ name, photos: [], fixed: true }));
+    sections = (CATEGORY_SECTIONS[category] || []).map(name => ({ name, fixed: true }));
   }
 
   function getThumbnailUrl(file) {
@@ -585,7 +598,7 @@ export function mount() {
     });
   }
 
-  /* ── STEP 3: 목차별 사진 ── */
+  /* ── STEP 3: 목차 설정 ── */
   const sectionsContainer = document.getElementById('sectionsContainer');
   const addSectionBtn     = document.getElementById('addSectionBtn');
 
@@ -593,142 +606,96 @@ export function mount() {
   renderSections();
 
   addSectionBtn.addEventListener('click', () => {
-    sections.push({ name: '', photos: [], fixed: false });
+    sections.push({ name: '', fixed: false });
     renderSections();
   });
 
-  function getGlobalPhotoIndex(sectionIdx, localIdx) {
-    let offset = 0;
-    for (let i = 0; i < sectionIdx; i++) offset += sections[i].photos.length;
-    return offset + localIdx + 1;
-  }
+  function buildSectionRow(section, idx) {
+    const row = document.createElement('div');
+    row.className = 'section-row';
 
-  function addPhotosToSection(sectionIdx, files) {
-    const imgs = files.filter(f => f.type.startsWith('image/'));
-    const sec = sections[sectionIdx];
-    sec.photos.push(...imgs.slice(0, 60 - sec.photos.length));
-    renderSectionGrid(sectionIdx);
-  }
+    const numLabel = document.createElement('span');
+    numLabel.className = 'section-title-num';
+    numLabel.textContent = `${idx + 1}.`;
 
-  function deletePhotoFromSection(sectionIdx, photoIdx) {
-    const file = sections[sectionIdx].photos[photoIdx];
-    const url = thumbnailCache.get(file);
-    if (url) { URL.revokeObjectURL(url); thumbnailCache.delete(file); }
-    sections[sectionIdx].photos.splice(photoIdx, 1);
-    renderSectionGrid(sectionIdx);
-  }
+    const input = document.createElement('input');
+    input.className = 'section-title-input';
+    input.type = 'text';
+    input.value = section.name;
+    input.placeholder = '목차 이름 입력';
+    input.addEventListener('input', () => { section.name = input.value; });
 
-  function buildSectionCard(section, idx) {
-    const card = document.createElement('div');
-    card.className = 'section-card';
-    const header = document.createElement('div');
-    header.className = 'section-card-header';
+    row.appendChild(numLabel);
+    row.appendChild(input);
 
-    if (section.fixed) {
-      const numLabel = document.createElement('span');
-      numLabel.className = 'section-title-num';
-      numLabel.textContent = `${idx + 1}.`;
-      const input = document.createElement('input');
-      input.className = 'section-title-input';
-      input.type = 'text';
-      input.value = section.name;
-      input.addEventListener('input', () => { section.name = input.value; });
-      header.appendChild(numLabel);
-      header.appendChild(input);
-    } else {
-      const input = document.createElement('input');
-      input.className = 'section-title-input';
-      input.type = 'text';
-      input.placeholder = '목차 이름 입력';
-      input.value = section.name;
-      input.addEventListener('input', () => { section.name = input.value; });
-      header.appendChild(input);
+    if (!section.fixed) {
       const removeBtn = document.createElement('button');
       removeBtn.className = 'btn-remove-section';
       removeBtn.title = '목차 삭제';
       removeBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>`;
       removeBtn.addEventListener('click', () => {
-        section.photos.forEach(f => { const u = thumbnailCache.get(f); if (u) { URL.revokeObjectURL(u); thumbnailCache.delete(f); } });
         sections.splice(idx, 1);
         renderSections();
       });
-      header.appendChild(removeBtn);
+      row.appendChild(removeBtn);
     }
 
-    const countBadge = document.createElement('span');
-    countBadge.className = 'section-count';
-    countBadge.id = `secBadge_${idx}`;
-    countBadge.textContent = `${section.photos.length}장`;
-    header.appendChild(countBadge);
-    card.appendChild(header);
-
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file'; fileInput.multiple = true; fileInput.accept = 'image/*'; fileInput.hidden = true;
-
-    const zone = document.createElement('div');
-    zone.className = 'section-upload-zone';
-    zone.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="20" height="20" style="display:block;margin:0 auto 6px"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>클릭하거나 드래그해서 사진 추가`;
-    zone.appendChild(fileInput);
-    zone.addEventListener('click', () => fileInput.click());
-    zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag-over'); });
-    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
-    zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('drag-over'); addPhotosToSection(idx, Array.from(e.dataTransfer.files)); });
-    fileInput.addEventListener('change', () => { addPhotosToSection(idx, Array.from(fileInput.files)); fileInput.value = ''; });
-    card.appendChild(zone);
-
-    const bar = document.createElement('div');
-    bar.className = 'section-photo-bar';
-    const countText = document.createElement('span');
-    countText.className = 'section-count-text';
-    countText.id = `secText_${idx}`;
-    countText.textContent = `${section.photos.length}장 선택됨`;
-    const clearBtn = document.createElement('button');
-    clearBtn.className = 'btn-text-danger';
-    clearBtn.textContent = '모두 지우기';
-    clearBtn.addEventListener('click', () => {
-      section.photos.forEach(f => { const u = thumbnailCache.get(f); if (u) { URL.revokeObjectURL(u); thumbnailCache.delete(f); } });
-      section.photos = [];
-      renderSectionGrid(idx);
-    });
-    bar.append(countText, clearBtn);
-    card.appendChild(bar);
-
-    const grid = document.createElement('div');
-    grid.className = 'section-photo-grid';
-    grid.dataset.sectionIndex = idx;
-    card.appendChild(grid);
-
-    return card;
+    return row;
   }
 
   function renderSections() {
     sectionsContainer.innerHTML = '';
-    sections.forEach((sec, idx) => sectionsContainer.appendChild(buildSectionCard(sec, idx)));
-    sections.forEach((_, idx) => renderSectionGrid(idx));
+    sections.forEach((sec, idx) => sectionsContainer.appendChild(buildSectionRow(sec, idx)));
   }
 
-  async function renderSectionGrid(sectionIdx) {
-    const section = sections[sectionIdx];
-    if (!section) return;
-    const grid = sectionsContainer.querySelector(`.section-photo-grid[data-section-index="${sectionIdx}"]`);
-    if (!grid) return;
-    const n = section.photos.length;
-    const badge = document.getElementById(`secBadge_${sectionIdx}`);
-    const textEl = document.getElementById(`secText_${sectionIdx}`);
-    if (badge) badge.textContent = `${n}장`;
-    if (textEl) textEl.textContent = `${n}장 선택됨`;
-    grid.innerHTML = '';
+  /* ── STEP 3: 사진 업로드 (단일 풀) ── */
+  const photoUploadZone = document.getElementById('photoUploadZone');
+  const photoInput      = document.getElementById('photoInput');
+  const photoCountBar   = document.getElementById('photoCountBar');
+  const photoCountText  = document.getElementById('photoCountText');
+  const clearPhotosBtn  = document.getElementById('clearPhotosBtn');
+  const photoPoolGrid   = document.getElementById('photoPoolGrid');
+
+  photoUploadZone.addEventListener('click', () => photoInput.click());
+  photoUploadZone.addEventListener('dragover', (e) => { e.preventDefault(); photoUploadZone.classList.add('drag-over'); });
+  photoUploadZone.addEventListener('dragleave', () => photoUploadZone.classList.remove('drag-over'));
+  photoUploadZone.addEventListener('drop', (e) => {
+    e.preventDefault(); photoUploadZone.classList.remove('drag-over');
+    addToPhotoPool(Array.from(e.dataTransfer.files));
+  });
+  photoInput.addEventListener('change', () => {
+    addToPhotoPool(Array.from(photoInput.files));
+    photoInput.value = '';
+  });
+
+  clearPhotosBtn.addEventListener('click', () => {
+    allPhotos.forEach(f => { const u = thumbnailCache.get(f); if (u) { URL.revokeObjectURL(u); thumbnailCache.delete(f); } });
+    allPhotos = [];
+    renderPhotoPool();
+  });
+
+  function addToPhotoPool(files) {
+    const imgs = files.filter(f => f.type.startsWith('image/'));
+    allPhotos.push(...imgs.slice(0, 60 - allPhotos.length));
+    renderPhotoPool();
+  }
+
+  async function renderPhotoPool() {
+    const n = allPhotos.length;
+    photoCountBar.style.display = n === 0 ? 'none' : '';
+    photoCountText.textContent = `${n}장 선택됨`;
+    photoCountText.className = `photo-count-text${n >= 10 ? ' count-good' : ''}`;
+    photoPoolGrid.innerHTML = '';
     if (n === 0) return;
-    const thumbUrls = await Promise.all(section.photos.map(f => getThumbnailUrl(f)));
-    section.photos.forEach((file, i) => {
-      const globalNum = getGlobalPhotoIndex(sectionIdx, i);
+
+    const thumbUrls = await Promise.all(allPhotos.map(f => getThumbnailUrl(f)));
+    allPhotos.forEach((file, i) => {
       const thumb = document.createElement('div');
       thumb.className = 'photo-thumb';
-      thumb.draggable = true;
-      thumb.title = '클릭: 미리보기 · 드래그: 순서 변경';
+      thumb.title = '클릭: 미리보기';
       const num = document.createElement('span');
       num.className = 'thumb-num';
-      num.textContent = globalNum;
+      num.textContent = i + 1;
       const img = document.createElement('img');
       img.src = thumbUrls[i];
       img.draggable = false;
@@ -736,28 +703,16 @@ export function mount() {
       delBtn.className = 'thumb-del';
       delBtn.title = '삭제';
       delBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>`;
-      delBtn.addEventListener('click', (e) => { e.stopPropagation(); deletePhotoFromSection(sectionIdx, i); });
-      thumb.addEventListener('click', () => openLightbox(file, globalNum));
-      thumb.addEventListener('dragstart', (e) => {
-        dragSrcSection = sectionIdx; dragSrcIndex = i;
-        e.dataTransfer.effectAllowed = 'move';
-        setTimeout(() => thumb.classList.add('dragging'), 0);
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const url = thumbnailCache.get(file);
+        if (url) { URL.revokeObjectURL(url); thumbnailCache.delete(file); }
+        allPhotos.splice(i, 1);
+        renderPhotoPool();
       });
-      thumb.addEventListener('dragend', () => thumb.classList.remove('dragging'));
-      thumb.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; thumb.classList.add('drag-over-thumb'); });
-      thumb.addEventListener('dragleave', () => thumb.classList.remove('drag-over-thumb'));
-      thumb.addEventListener('drop', (e) => {
-        e.preventDefault();
-        thumb.classList.remove('drag-over-thumb');
-        if (dragSrcSection === sectionIdx && dragSrcIndex !== null && dragSrcIndex !== i) {
-          const [dragged] = section.photos.splice(dragSrcIndex, 1);
-          section.photos.splice(i, 0, dragged);
-          dragSrcIndex = null; dragSrcSection = null;
-          renderSectionGrid(sectionIdx);
-        }
-      });
+      thumb.addEventListener('click', () => openLightbox(file, i + 1));
       thumb.append(img, num, delBtn);
-      grid.appendChild(thumb);
+      photoPoolGrid.appendChild(thumb);
     });
   }
 
@@ -803,10 +758,18 @@ export function mount() {
       .replace(/`(.+?)`/g, '$1').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
   }
 
-  function buildBodyHtml(rawBody) {
+  function buildBodyHtml(rawBody, photoUrls = []) {
     const parts = rawBody.split(/(\[사진\d+\])/);
     return parts.map(part => {
-      if (/^\[사진\d+\]$/.test(part)) return `<span class="photo-marker">${part}</span>`;
+      const match = part.match(/^\[사진(\d+)\]$/);
+      if (match) {
+        const n = parseInt(match[1]);
+        const url = photoUrls[n - 1];
+        if (url) {
+          return `<div class="result-photo-wrap"><img class="result-photo-img" src="${url}" alt="사진 ${n}" /><span class="photo-marker">[사진${n}]</span></div>`;
+        }
+        return `<span class="photo-marker">${part}</span>`;
+      }
       return part.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
     }).join('');
   }
@@ -815,10 +778,9 @@ export function mount() {
   document.getElementById('generateBtn').addEventListener('click', async () => {
     const info = collectFormData();
     if (!info.name || !info.location) { await showAlert('장소명과 위치는 필수 입력 항목이에요!'); return; }
-    const totalPhotos = sections.reduce((sum, s) => sum + s.photos.length, 0);
-    if (totalPhotos === 0) { await showAlert('리뷰 사진을 최소 1장 이상 업로드해주세요!'); return; }
-    if (totalPhotos < 30) {
-      const ok = await showConfirm(`현재 총 ${totalPhotos}장 업로드됐어요.\n30장 이상이면 더 풍성한 글이 완성돼요.\n그래도 진행할까요?`);
+    if (allPhotos.length === 0) { await showAlert('리뷰 사진을 최소 1장 이상 업로드해주세요!'); return; }
+    if (allPhotos.length < 30) {
+      const ok = await showConfirm(`현재 총 ${allPhotos.length}장 업로드됐어요.\n30장 이상이면 더 풍성한 글이 완성돼요.\n그래도 진행할까요?`);
       if (!ok) return;
     }
 
@@ -842,10 +804,8 @@ export function mount() {
     fd.append('rating', selectedRating);
     if (memo) fd.append('memo', memo);
     Object.entries(info).forEach(([k, v]) => fd.append(k, v));
-    const validSections = sections.filter(s => s.photos.length > 0);
-    fd.append('sectionNames', JSON.stringify(validSections.map(s => s.name || '기타')));
-    fd.append('sectionCounts', JSON.stringify(validSections.map(s => s.photos.length)));
-    validSections.forEach(s => s.photos.forEach(f => fd.append('photos', f)));
+    fd.append('sectionNames', JSON.stringify(sections.map(s => s.name || '기타')));
+    allPhotos.forEach(f => fd.append('photos', f));
 
     try {
       const resp = await fetch('/api/generate', { method: 'POST', headers: { 'x-api-key': connectedApiKey }, body: fd });
@@ -899,7 +859,12 @@ export function mount() {
   function showResult(r, resultCard) {
     document.getElementById('titleOutput').textContent = r.title || '';
     rawBodyText = stripMarkdown(r.body || '');
-    document.getElementById('bodyOutput').innerHTML = buildBodyHtml(rawBodyText);
+
+    resultPhotoUrls.forEach(u => URL.revokeObjectURL(u));
+    resultPhotoUrls = allPhotos.map(f => URL.createObjectURL(f));
+
+    document.getElementById('bodyOutput').innerHTML = buildBodyHtml(rawBodyText, resultPhotoUrls);
+
     const tagsBox = document.getElementById('tagsOutput');
     tagsBox.innerHTML = '';
     const tags = Array.isArray(r.hashtags) ? r.hashtags : (r.hashtags || '').split(/\s+/).filter(t => t.startsWith('#'));
@@ -952,7 +917,7 @@ export function mount() {
     if (e.key !== 'Escape') return;
     closeLightbox();
     const overlay = document.getElementById('customModal');
-    if (!overlay.classList.contains('hidden') && !overlay.dataset.confirm) {
+    if (overlay && !overlay.classList.contains('hidden') && !overlay.dataset.confirm) {
       overlay.classList.add('hidden');
     }
   };
@@ -972,5 +937,7 @@ export function mount() {
     if (lightboxObjectUrl) { URL.revokeObjectURL(lightboxObjectUrl); lightboxObjectUrl = null; }
     thumbnailCache.forEach((url) => URL.revokeObjectURL(url));
     thumbnailCache.clear();
+    resultPhotoUrls.forEach(u => URL.revokeObjectURL(u));
+    resultPhotoUrls = [];
   };
 }

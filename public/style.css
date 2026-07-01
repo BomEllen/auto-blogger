@@ -699,8 +699,27 @@ body {
 }
 .modal-btn-cancel:hover { background: rgba(255,255,255,0.88); color: var(--text); }
 
-/* ── STEP 3 목차별 업로드 ── */
-.sections-container { display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; }
+/* ── STEP 3 목차 목록 ── */
+.sections-container { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+
+.section-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-lo); border-radius: var(--radius-sm);
+  background: var(--glass-md);
+}
+
+/* ── 결과 본문 내 사진 미리보기 ── */
+.result-photo-wrap {
+  display: block; margin: 14px 0 6px;
+}
+.result-photo-img {
+  max-width: 100%; height: auto; border-radius: 10px;
+  display: block; margin-bottom: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* ── (레거시) STEP 3 목차별 업로드 ── */
 
 .section-card {
   border: 1px solid var(--border-lo); border-radius: var(--radius-sm);
