@@ -407,7 +407,10 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const descModel = genAI.getGenerativeModel({ model: FALLBACK_MODEL });
-    const blogModel = genAI.getGenerativeModel({ model: GEMINI_MODEL, systemInstruction: STYLE_GUIDE });
+    const blogSystemInstruction = STYLE_SAMPLES
+      ? `${STYLE_GUIDE}\n\n[연녹 실제 블로그 샘플 — 아래 글들의 말투·어미·문장부호를 글 작성 시 반드시 그대로 모방할 것]\n${STYLE_SAMPLES}`
+      : STYLE_GUIDE;
+    const blogModel = genAI.getGenerativeModel({ model: GEMINI_MODEL, systemInstruction: blogSystemInstruction });
 
     send({ type: 'status', message: `사진 ${photos.length}장 분석 중...` });
 
@@ -480,18 +483,7 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
     const sectionListBlock = `\n[목차 구성 — 아래 이름을 본문 목차와 각 섹션 제목으로 반드시 그대로 사용하세요]\n${effectiveSections.map((n, i) => `${i + 1}. ${n}`).join('\n')}\n`;
 
     const samplesSection = STYLE_SAMPLES
-      ? `[실제 블로그 샘플 — 아래 글들의 말투·어미·문장부호를 그대로 모방해서 써야 합니다]
-특히 다음 표현을 반드시 사용하세요:
-- "요렇게", "요런", "요기" 같은 구어체 지시어
-- "ㅎㅎ", "ㅋㅋ", "ㅠㅠ", "ㅎㅅㅎ" 같은 자음 감정 표현 (문장 끝에 자연스럽게)
-- "~합니당", "~했어용", "~조음" 같은 부드러운 구어체 어미 (20~30% 비율로)
-- 마침표(.)는 거의 쓰지 않고 "~!", "~", "..." 로 대체
-- 짧고 툭툭 끊기는 문장 흐름
-
-${STYLE_SAMPLES}
-
----
-위 샘플의 문체와 말투를 그대로 유지하면서, 아래 정보로 블로그 글을 작성하세요.`
+      ? `[주의] 시스템 지침에 포함된 연녹 블로그 샘플의 말투·어미·ㅋㅋ/ㅠㅠ 등 자음 표현·구어체 어미를 반드시 그대로 살려 작성하세요.`
       : '';
 
     const prompt = `${samplesSection}
@@ -513,7 +505,7 @@ ${photoOrderNote}
       ),
       () => {
         send({ type: 'status', message: 'AI 서버 과부하 — 대체 모델로 전환 중...' });
-        const fbModel = genAI.getGenerativeModel({ model: FALLBACK_MODEL, systemInstruction: STYLE_GUIDE });
+        const fbModel = genAI.getGenerativeModel({ model: FALLBACK_MODEL, systemInstruction: blogSystemInstruction });
         return withRetry(
           () => fbModel.generateContent(prompt),
           3, 2000,
@@ -531,7 +523,7 @@ ${photoOrderNote}
       const retryResult = await withFallback(
         () => withRetry(() => blogModel.generateContent(retryPrompt)),
         () => {
-          const fbModel = genAI.getGenerativeModel({ model: FALLBACK_MODEL, systemInstruction: STYLE_GUIDE });
+          const fbModel = genAI.getGenerativeModel({ model: FALLBACK_MODEL, systemInstruction: blogSystemInstruction });
           return withRetry(() => fbModel.generateContent(retryPrompt), 3, 2000);
         }
       );
