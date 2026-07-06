@@ -5,6 +5,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { OpenAI } = require('openai');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 const FALLBACK_MODEL = 'gemini-2.5-flash-lite';
@@ -22,7 +23,10 @@ console.log(`[config] Gemini 모델: ${GEMINI_MODEL}`);
 
 const app = express();
 const upload = multer({
-  storage: multer.memoryStorage(),
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, os.tmpdir()),
+    filename: (_req, _file, cb) => cb(null, `upload-${Date.now()}-${Math.random().toString(36).slice(2)}`),
+  }),
   limits: { fileSize: 10 * 1024 * 1024, files: 61 },
 });
 
@@ -116,7 +120,15 @@ function validateBlogOutput(parsed, photoCount) {
 }
 
 function imagePart(file) {
-  return { inlineData: { data: file.buffer.toString('base64'), mimeType: file.mimetype || 'image/jpeg' } };
+  const data = fs.readFileSync(file.path).toString('base64');
+  return { inlineData: { data, mimeType: file.mimetype || 'image/jpeg' } };
+}
+
+function cleanupFiles(files) {
+  const list = Array.isArray(files) ? files : files ? [files] : [];
+  for (const f of list) {
+    try { fs.unlinkSync(f.path); } catch {}
+  }
 }
 
 function isRetryable(err) {
@@ -279,6 +291,7 @@ app.post('/api/generate-info-blog', upload.array('refImages', 10), async (req, r
       }));
       const valid = analyses.filter(Boolean);
       if (valid.length > 0) refParts.push(`[참고 이미지 분석]\n${valid.join('\n\n')}`);
+      cleanupFiles(refImages);
     }
     if (refParts.length > 0) {
       refSection = `\n[참고 자료 — 아래 내용을 활용해 글의 정확성과 정보량을 높이세요]\n${refParts.join('\n\n')}\n`;
@@ -345,6 +358,8 @@ ${refSection}${searchedInfoSection}`;
     });
   } catch (err) {
     res.status(500).json({ error: friendlyGeminiError(err) });
+  } finally {
+    cleanupFiles(req.files);
   }
 });
 
@@ -382,6 +397,8 @@ app.post('/api/extract-info', upload.single('photo'), async (req, res) => {
   } catch (err) {
     console.error('[extract-info] error:', err.message);
     res.status(500).json({ error: friendlyGeminiError(err) });
+  } finally {
+    cleanupFiles(req.file);
   }
 });
 
@@ -548,6 +565,8 @@ ${photoOrderNote}
     console.error('generate error:', err);
     send({ type: 'error', message: friendlyGeminiError(err) });
     res.end();
+  } finally {
+    cleanupFiles(req.files);
   }
 });
 
