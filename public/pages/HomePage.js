@@ -79,6 +79,27 @@ export function getHTML() {
           <button class="btn-change-key" id="changeKeyBtn">키 변경</button>
         </div>
         <p class="api-error hidden" id="apiError"></p>
+
+        <!-- OpenAI 키 (사진 분석용) -->
+        <div class="openai-key-section" id="openaiKeySection">
+          <div class="openai-key-divider"></div>
+          <div class="openai-key-header">
+            <span class="openai-key-label">OpenAI API 키 <span class="tag-optional">사진 분석용</span></span>
+            <span class="openai-key-hint">입력하면 사진 분석이 GPT-4o-mini로 처리돼 더 빠르게 동작해요</span>
+          </div>
+          <div class="openai-key-row" id="openaiKeyInputRow">
+            <input type="text" name="username" value="OpenAI API Key" autocomplete="username" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0" />
+            <input type="password" id="openaiKeyInput" name="password" class="openai-key-input" placeholder="sk-..." autocomplete="current-password" />
+            <button class="btn-connect openai-save-btn" id="openaiSaveBtn">저장</button>
+          </div>
+          <div class="openai-key-saved hidden" id="openaiKeySaved">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="connected-icon">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+            <span class="masked-key" id="openaiMaskedKey"></span>
+            <button class="btn-change-key" id="openaiChangeBtn">변경</button>
+          </div>
+        </div>
       </section>
 
       <!-- 메인 폼 -->
@@ -849,7 +870,9 @@ export function mount() {
     validSections.forEach(s => s.photos.forEach(f => fd.append('photos', f)));
 
     try {
-      const resp = await fetch('/api/generate', { method: 'POST', headers: { 'x-api-key': connectedApiKey }, body: fd });
+      const headers = { 'x-api-key': connectedApiKey };
+      if (openaiKey) headers['x-openai-key'] = openaiKey;
+      const resp = await fetch('/api/generate', { method: 'POST', headers, body: fd });
       if (!resp.ok) { const e = await resp.json(); throw new Error(e.error || `오류 ${resp.status}`); }
 
       const reader = resp.body.getReader();
@@ -958,6 +981,37 @@ export function mount() {
     }
   };
   document.addEventListener('keydown', handleKeydown);
+
+  /* ── OpenAI 키 ── */
+  let openaiKey = sessionStorage.getItem('openai_blog_key') || '';
+  const openaiKeyInput   = document.getElementById('openaiKeyInput');
+  const openaiSaveBtn    = document.getElementById('openaiSaveBtn');
+  const openaiKeyInputRow = document.getElementById('openaiKeyInputRow');
+  const openaiKeySaved   = document.getElementById('openaiKeySaved');
+  const openaiMaskedKey  = document.getElementById('openaiMaskedKey');
+  const openaiChangeBtn  = document.getElementById('openaiChangeBtn');
+
+  function showOpenaiSaved(key) {
+    openaiMaskedKey.textContent = key.substring(0, 7) + '••••';
+    openaiKeyInputRow.classList.add('hidden');
+    openaiKeySaved.classList.remove('hidden');
+  }
+
+  if (openaiKey) { openaiKeyInput.value = openaiKey; showOpenaiSaved(openaiKey); }
+
+  openaiSaveBtn.addEventListener('click', () => {
+    const k = openaiKeyInput.value.trim();
+    if (!k) return;
+    openaiKey = k;
+    sessionStorage.setItem('openai_blog_key', k);
+    showOpenaiSaved(k);
+  });
+  openaiKeyInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') openaiSaveBtn.click(); });
+  openaiChangeBtn.addEventListener('click', () => {
+    openaiKeySaved.classList.add('hidden');
+    openaiKeyInputRow.classList.remove('hidden');
+    openaiKeyInput.focus();
+  });
 
   /* ── 자동 연동 ── */
   const savedKey = sessionStorage.getItem('gemini_key');

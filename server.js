@@ -423,6 +423,7 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
 
   try {
     const { category, rating, memo, sectionNames: rawSectionNames, sectionCounts: rawSectionCounts, ...info } = req.body;
+    const openaiKey = req.headers['x-openai-key'] || '';
     const photos = req.files || [];
     const categoryName = getCategoryName(category);
 
@@ -454,25 +455,44 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
       }
     }
 
+    const photoPrompt = (sectionName) => `이 사진에서 블로그 리뷰에 쓸 내용을 추출하세요.
+장르: ${categoryName} 리뷰 / 목차: ${sectionName}
+- 사진에 보이는 것을 구체적으로 파악하세요 (메뉴명, 색감, 구조, 특징 등)
+- 사진에 실제로 보이는 내용만 묘사할 것. 사진에 없는 정보는 절대 언급하지 마세요
+- 목차 이름은 분류 기준일 뿐, 억지로 모든 항목을 언급할 필요 없음
+- 메뉴판·가격표가 보이면 메뉴명과 가격을 최대한 정확히 읽어서 포함하세요
+- 단순 묘사가 아닌 방문자가 느낄 실용적 팁·장단점으로 확장하세요
+- 2~3문장, 설명만 작성하세요`;
+
+    const gptClient = openaiKey ? new OpenAI({ apiKey: openaiKey }) : null;
+
     let completed = 0;
     const photoDescriptions = await withConcurrency(allPhotoTasks, 6, async ({ photo, group, index }) => {
       console.log(`[photo ${index}/${allPhotoTasks.length}] 분석 시작 — 목차: ${group.name} / 파일크기: ${Math.round(photo.size/1024)}KB`);
       try {
-        const result = await withRetry(() => withTimeout(() => descModel.generateContent([
-          imagePart(photo),
-          `이 사진에서 블로그 리뷰에 쓸 내용을 추출하세요.
-장르: ${categoryName} 리뷰 / 목차: ${group.name}
-- 사진에 보이는 것을 구체적으로 파악하세요 (메뉴명, 색감, 구조, 특징 등)
-- desc는 사진에 실제로 보이는 내용만 묘사할 것. 사진에 없는 정보는 절대 언급하지 마세요 (예: 외관 사진인데 "주차 정보는 확인 불가" 같은 말 금지)
-- 목차 이름은 분류 기준일 뿐, 목차에 포함된 모든 항목을 억지로 언급할 필요 없음
-- 메뉴판·가격표가 보이는 경우: 메뉴명과 가격을 최대한 정확히 읽어서 포함하세요 (예: "아이스 아메리카노 6,000원, 카페라떼 6,500원 등이 적혀 있어요")
-- 단순 묘사가 아닌 방문자가 느낄 실용적 팁·장단점으로 확장하세요
-- 2~3문장, 설명만 작성하세요`,
-        ]), 30000));
+        let desc;
+        if (gptClient) {
+          const base64 = fs.readFileSync(photo.path).toString('base64');
+          const gptResp = await withTimeout(() => gptClient.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: [
+              { type: 'image_url', image_url: { url: `data:${photo.mimetype || 'image/jpeg'};base64,${base64}`, detail: 'auto' } },
+              { type: 'text', text: photoPrompt(group.name) },
+            ]}],
+            max_tokens: 300,
+          }), 30000);
+          desc = gptResp.choices[0].message.content.trim();
+        } else {
+          const result = await withRetry(() => withTimeout(() => descModel.generateContent([
+            imagePart(photo),
+            photoPrompt(group.name),
+          ]), 30000));
+          desc = result.response.text().trim();
+        }
         completed++;
         console.log(`[photo ${index}/${allPhotoTasks.length}] 완료 (${completed}번째)`);
         send({ type: 'progress', current: completed, total: allPhotoTasks.length });
-        return { index, section: group.name, desc: result.response.text().trim() };
+        return { index, section: group.name, desc };
       } catch (err) {
         completed++;
         console.error(`[photo ${index}/${allPhotoTasks.length}] 실패 — ${err.message}`);

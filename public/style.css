@@ -273,6 +273,21 @@ body {
 .api-error { color: #e05b8a; font-size: 13px; margin-top: 10px; }
 .api-error.hidden { display: none; }
 
+/* ── OpenAI Key Section ── */
+.openai-key-section { margin-top: 4px; }
+.openai-key-divider { height: 1px; background: var(--border); margin: 14px 0 12px; }
+.openai-key-header { margin-bottom: 10px; }
+.openai-key-label { font-size: 13px; font-weight: 600; color: var(--text); margin-right: 6px; }
+.openai-key-hint { font-size: 12px; color: var(--text-2); display: block; margin-top: 3px; }
+.openai-key-row { display: flex; gap: 8px; align-items: center; position: relative; }
+.openai-key-input { flex: 1; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--glass); color: var(--text); font-size: 14px; }
+.openai-key-input:focus { outline: none; border-color: var(--accent); background: var(--glass-hi); }
+.openai-key-input::placeholder { color: var(--text-2); }
+.openai-save-btn { padding: 9px 16px; font-size: 13px; }
+.openai-key-saved { display: flex; align-items: center; gap: 8px; }
+.openai-key-saved.hidden { display: none; }
+.openai-key-row.hidden { display: none; }
+
 /* ── Main Steps ── */
 .main-steps { display: flex; flex-direction: column; gap: 16px; }
 .main-steps > *:not(.step-card-photos) { transition: opacity 0.3s; }
