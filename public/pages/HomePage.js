@@ -83,8 +83,14 @@ export function getHTML() {
         <!-- OpenAI 키 (사진 분석용) -->
         <div class="openai-key-section" id="openaiKeySection">
           <div class="openai-key-divider"></div>
-          <div class="openai-key-header">
+          <div class="openai-key-header" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <span class="openai-key-label">OpenAI API 키 <span class="tag-optional">사진 분석용</span></span>
+            <span class="api-badge hidden" id="openaiKeyBadge">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+              </svg>
+              연동됨
+            </span>
             <span class="openai-key-hint">입력하면 사진 분석이 GPT-4o-mini로 처리돼 더 빠르게 동작해요</span>
           </div>
           <div class="openai-key-row" id="openaiKeyInputRow">
@@ -990,11 +996,20 @@ export function mount() {
   const openaiKeySaved   = document.getElementById('openaiKeySaved');
   const openaiMaskedKey  = document.getElementById('openaiMaskedKey');
   const openaiChangeBtn  = document.getElementById('openaiChangeBtn');
+  const openaiKeyBadge   = document.getElementById('openaiKeyBadge');
 
   function showOpenaiSaved(key) {
     openaiMaskedKey.textContent = key.substring(0, 7) + '••••';
     openaiKeyInputRow.classList.add('hidden');
     openaiKeySaved.classList.remove('hidden');
+    openaiKeyBadge.classList.remove('hidden');
+  }
+
+  function showOpenaiInput() {
+    openaiKeySaved.classList.add('hidden');
+    openaiKeyBadge.classList.add('hidden');
+    openaiKeyInputRow.classList.remove('hidden');
+    openaiKeyInput.focus();
   }
 
   if (openaiKey) { openaiKeyInput.value = openaiKey; showOpenaiSaved(openaiKey); }
@@ -1007,11 +1022,7 @@ export function mount() {
     showOpenaiSaved(k);
   });
   openaiKeyInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') openaiSaveBtn.click(); });
-  openaiChangeBtn.addEventListener('click', () => {
-    openaiKeySaved.classList.add('hidden');
-    openaiKeyInputRow.classList.remove('hidden');
-    openaiKeyInput.focus();
-  });
+  openaiChangeBtn.addEventListener('click', showOpenaiInput);
 
   /* ── 자동 연동 ── */
   const savedKey = sessionStorage.getItem('gemini_key');

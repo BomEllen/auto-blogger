@@ -284,7 +284,11 @@ body {
 .openai-key-input:focus { outline: none; border-color: var(--accent); background: var(--glass-hi); }
 .openai-key-input::placeholder { color: var(--text-2); }
 .openai-save-btn { padding: 9px 16px; font-size: 13px; }
-.openai-key-saved { display: flex; align-items: center; gap: 8px; }
+.openai-key-saved {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; background: var(--glass-md);
+  border-radius: var(--radius-sm); border: 1px solid var(--border-lo);
+}
 .openai-key-saved.hidden { display: none; }
 .openai-key-row.hidden { display: none; }
 
