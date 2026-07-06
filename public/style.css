@@ -947,6 +947,96 @@ body {
 }
 .ib-ref-thumb-del svg { width: 10px; height: 10px; }
 
+/* ── 이미지 생성 탭 ── */
+.image-gen-page {}
+.ig-hero {
+  position: relative; overflow: hidden;
+  background: linear-gradient(135deg, #f0fce8 0%, #e8f5d0 100%);
+  padding: 56px 24px 48px; text-align: center;
+}
+.ig-hero-inner { position: relative; z-index: 1; }
+.ig-heading {
+  font-size: clamp(28px, 5vw, 40px); font-weight: 800;
+  color: #1a3d08; letter-spacing: -0.04em; margin: 12px 0 10px;
+}
+.ig-sub { font-size: 15px; color: #4a7a20; font-weight: 500; }
+
+.ig-wrapper {
+  max-width: 720px; margin: 0 auto; padding: 32px 20px 60px;
+  display: flex; flex-direction: column; gap: 20px;
+}
+
+.ig-api-row { display: flex; gap: 10px; align-items: center; }
+.btn-ig-connect {
+  padding: 10px 18px; border-radius: var(--radius-sm);
+  background: var(--accent); border: none; cursor: pointer;
+  font-size: 13px; font-weight: 700; color: #1a3d08;
+  white-space: nowrap; flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+.btn-ig-connect:hover { opacity: 0.85; }
+.ig-api-error { font-size: 13px; color: #e05555; margin-top: 6px; }
+.ig-api-ok { font-size: 13px; color: #3a8a10; font-weight: 600; margin-top: 6px; }
+
+.ig-form-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+}
+@media (max-width: 560px) { .ig-form-grid { grid-template-columns: 1fr; } }
+
+.ig-composition-select {
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2' stroke='%236B7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m19.5 8.25-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;
+  padding-right: 36px; cursor: pointer; width: 100%;
+}
+
+.ig-size-group { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 4px; }
+.ig-size-label { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--text); cursor: pointer; }
+
+.btn-ig-generate {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 14px;
+  background: #1a3d08; color: #fff;
+  border: none; border-radius: var(--radius-sm);
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn-ig-generate:hover:not(:disabled) { opacity: 0.85; }
+.btn-ig-generate:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-ig-generate svg { width: 18px; height: 18px; }
+.btn-ig-generate-free { background: #4a7a20; }
+
+.ig-free-divider {
+  display: flex; align-items: center; gap: 12px;
+  color: var(--text-2); font-size: 13px; font-weight: 600;
+}
+.ig-free-divider::before,
+.ig-free-divider::after { content: ''; flex: 1; height: 1px; background: var(--border-lo); }
+
+.ig-loading {
+  display: flex; align-items: center; gap: 14px;
+  font-size: 14px; font-weight: 600; color: var(--text-2);
+  padding: 20px; justify-content: center;
+}
+
+.ig-result-card {}
+.ig-result-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px; flex-wrap: wrap; gap: 10px;
+}
+.ig-result-actions { display: flex; gap: 8px; align-items: center; }
+.ig-result-img {
+  width: 100%; border-radius: var(--radius-sm);
+  display: block; object-fit: contain;
+}
+.btn-ig-download {
+  padding: 8px 16px; border-radius: var(--radius-sm);
+  background: var(--accent); color: #1a3d08;
+  font-size: 13px; font-weight: 700; text-decoration: none;
+  transition: opacity 0.15s;
+}
+.btn-ig-download:hover { opacity: 0.85; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }

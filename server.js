@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const multer = require('multer');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { OpenAI } = require('openai');
 const path = require('path');
 const fs = require('fs');
 
@@ -541,6 +542,57 @@ ${photoOrderNote}
     console.error('generate error:', err);
     send({ type: 'error', message: friendlyGeminiError(err) });
     res.end();
+  }
+});
+
+// ── 이미지 생성 ──
+function buildImagePrompt({ location, situation, subject, timeWeather, composition, details }) {
+  const sit  = situation?.trim()   || '여행';
+  const tw   = timeWeather?.trim() || '자연스러운';
+  const comp = composition?.trim() || '즉흥적인 구도';
+  const det  = details?.trim()     || '현장의 자연스러운 생활감';
+  return `${location}에서 ${sit} 중 ${subject}를 일반 여행자가 아이폰 기본 카메라로 직접 촬영한 실제 여행 기록사진처럼 만들어줘. ${tw}의 자연광과 ${comp}를 반영하고, 과보정 없는 색감, 자연스러운 스마트폰 HDR, 스마트폰 특유의 현실적인 질감이 느껴지게 해줘. ${det}이 자연스럽게 보이도록 하고, 생활감 있는 프레이밍과 즉흥적인 분위기가 느껴지게 해줘. 광고컷, 화보컷, 3D 렌더, 과한 보정, 비현실적인 조명, 지나치게 완벽한 구도, AI 일러스트 느낌은 나지 않게 해줘.`;
+}
+
+const VALID_SIZES = new Set(['1024x1024', '1536x1024', '1024x1536']);
+
+app.post('/api/generate-image', async (req, res) => {
+  const apiKey = req.headers['x-api-key'];
+  if (!apiKey) return res.status(400).json({ error: 'OpenAI API 키가 필요합니다.' });
+
+  const { location, situation, subject, timeWeather, composition, details, size = '1024x1024', rawPrompt } = req.body;
+  const safeSize = VALID_SIZES.has(size) ? size : '1024x1024';
+
+  let prompt;
+  if (rawPrompt?.trim()) {
+    prompt = rawPrompt.trim();
+  } else {
+    if (!location?.trim()) return res.status(400).json({ error: '장소를 입력해주세요.' });
+    if (!subject?.trim())  return res.status(400).json({ error: '피사체를 입력해주세요.' });
+    prompt = buildImagePrompt({ location: location.trim(), situation, subject: subject.trim(), timeWeather, composition, details });
+  }
+  console.log(`[generate-image] size=${safeSize} prompt=${prompt.substring(0, 80)}...`);
+
+  try {
+    const openai = new OpenAI({ apiKey });
+    const response = await openai.images.generate({
+      model: 'gpt-image-1',
+      prompt,
+      quality: 'medium',
+      size: safeSize,
+      n: 1,
+    });
+    const b64 = response.data[0].b64_json;
+    res.json({ image: `data:image/png;base64,${b64}` });
+  } catch (err) {
+    console.error('[generate-image] error:', err.message);
+    const msg = err?.message || String(err);
+    const status = err?.status;
+    let friendlyMsg;
+    if (status === 401 || status === 403) friendlyMsg = 'OpenAI API 키가 유효하지 않아요.';
+    else if (status === 429) friendlyMsg = 'OpenAI API 요청 한도를 초과했어요. 잠시 후 다시 시도해주세요.';
+    else friendlyMsg = msg.substring(0, 200);
+    res.status(500).json({ error: friendlyMsg });
   }
 });
 
