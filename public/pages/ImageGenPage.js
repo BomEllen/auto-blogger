@@ -19,7 +19,8 @@ export function getHTML() {
           <label class="ib-label" for="igApiKey">OpenAI API 키</label>
           <p class="ib-hint">이미지 생성에는 OpenAI API 키가 필요해요 (gpt-image-1 모델 사용)</p>
           <div class="ig-api-row">
-            <input type="password" id="igApiKey" class="ib-input" placeholder="sk-..." autocomplete="off" style="flex:1" />
+            <input type="text" name="username" value="OpenAI API Key" autocomplete="username" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0" />
+            <input type="password" id="igApiKey" name="password" class="ib-input" placeholder="sk-..." autocomplete="current-password" style="flex:1" />
             <button class="btn-ig-connect" id="igConnectBtn">연동</button>
           </div>
           <p class="ig-api-error hidden" id="igApiError"></p>
