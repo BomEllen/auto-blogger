@@ -512,7 +512,7 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
       return `[${group.name}]\n${groupPhotos.map(p => `[사진${p.index}] ${p.desc}`).join('\n\n')}`;
     }).filter(Boolean).join('\n\n---\n\n');
 
-    const memoBlock = memo ? `\n[반드시 포함할 내용 - 사용자가 직접 지정]\n${memo}\n\n★ 배치 규칙: 위 내용을 총평에 몰아 넣지 마세요. 각 내용이 어울리는 사진 섹션을 먼저 찾아서 해당 본문 안에 자연스럽게 녹여내세요. 어떤 섹션에도 어울리지 않는 내용만 총평에 넣는 것을 허용합니다.\n` : '';
+    const memoBlock = memo ? `\n[사용자 지정 정보 — 반드시 포함, 반드시 분산 배치]\n${memo}\n\n★★ 배치 원칙 (총평 몰아넣기 절대 금지) ★★\n위 정보 항목 하나하나를 아래 순서로 처리하세요:\n1. 이 정보가 어느 사진 섹션의 내용과 가장 잘 어울리는가? → 해당 섹션 본문에 자연스럽게 녹여 쓰세요.\n2. 모든 섹션을 검토한 뒤에도 어울리는 섹션이 전혀 없는 항목만, 최후 수단으로 총평에 허용합니다.\n3. 총평은 방문 전체 소감 1~3문장만. 사용자 정보를 총평에 나열하는 것은 절대 금지.\n` : '';
 
     const affiliateLink = category === 'accommodation' ? (info.affiliateLink?.trim() || '') : '';
     const affiliateLinkBlock = affiliateLink
