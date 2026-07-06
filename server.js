@@ -529,16 +529,16 @@ ${photoOrderNote}
     const blogResult = await withFallback(
       () => withRetry(
         () => blogModel.generateContent(prompt),
-        5, 3000,
-        (attempt) => send({ type: 'status', message: `AI 서버가 바빠서 재시도 중... (${attempt}/5)` })
+        3, 3000,
+        (attempt) => send({ type: 'status', message: `AI 서버가 바빠서 재시도 중... (${attempt}/3)` })
       ),
       () => {
         send({ type: 'status', message: 'AI 서버 과부하 — 대체 모델로 전환 중...' });
         const fbModel = genAI.getGenerativeModel({ model: FALLBACK_MODEL, systemInstruction: STYLE_GUIDE });
         return withRetry(
           () => fbModel.generateContent(prompt),
-          3, 2000,
-          (attempt) => send({ type: 'status', message: `대체 모델 재시도 중... (${attempt}/3)` })
+          2, 2000,
+          (attempt) => send({ type: 'status', message: `대체 모델 재시도 중... (${attempt}/2)` })
         );
       }
     );
@@ -550,10 +550,10 @@ ${photoOrderNote}
       send({ type: 'status', message: '규칙 검수 중 — 자동 수정...' });
       const retryPrompt = `[규칙 위반 수정]\n다음 항목이 지켜지지 않았습니다:\n${violations.map((v) => `- ${v}`).join('\n')}\n\n위 항목만 고쳐서 전체 글을 다시 동일한 [TITLE][BODY][HASHTAGS] 형식으로 출력하세요.\n\n---\n\n${prompt}`;
       const retryResult = await withFallback(
-        () => withRetry(() => blogModel.generateContent(retryPrompt)),
+        () => withRetry(() => blogModel.generateContent(retryPrompt), 2, 3000),
         () => {
           const fbModel = genAI.getGenerativeModel({ model: FALLBACK_MODEL, systemInstruction: STYLE_GUIDE });
-          return withRetry(() => fbModel.generateContent(retryPrompt), 3, 2000);
+          return withRetry(() => fbModel.generateContent(retryPrompt), 2, 2000);
         }
       );
       parsed = parseBlogResponse(retryResult.response.text());
