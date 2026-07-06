@@ -131,6 +131,13 @@ function cleanupFiles(files) {
   }
 }
 
+function withTimeout(fn, ms) {
+  return Promise.race([
+    fn(),
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`timeout_${ms}`)), ms)),
+  ]);
+}
+
 function isRetryable(err) {
   const msg = err?.message || String(err);
   return msg.includes('503')
@@ -451,7 +458,7 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
     const photoDescriptions = await withConcurrency(allPhotoTasks, 6, async ({ photo, group, index }) => {
       console.log(`[photo ${index}/${allPhotoTasks.length}] 분석 시작 — 목차: ${group.name} / 파일크기: ${Math.round(photo.size/1024)}KB`);
       try {
-        const result = await withRetry(() => descModel.generateContent([
+        const result = await withRetry(() => withTimeout(() => descModel.generateContent([
           imagePart(photo),
           `이 사진에서 블로그 리뷰에 쓸 내용을 추출하세요.
 장르: ${categoryName} 리뷰 / 목차: ${group.name}
@@ -461,7 +468,7 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
 - 메뉴판·가격표가 보이는 경우: 메뉴명과 가격을 최대한 정확히 읽어서 포함하세요 (예: "아이스 아메리카노 6,000원, 카페라떼 6,500원 등이 적혀 있어요")
 - 단순 묘사가 아닌 방문자가 느낄 실용적 팁·장단점으로 확장하세요
 - 2~3문장, 설명만 작성하세요`,
-        ]));
+        ]), 30000));
         completed++;
         console.log(`[photo ${index}/${allPhotoTasks.length}] 완료 (${completed}번째)`);
         send({ type: 'progress', current: completed, total: allPhotoTasks.length });
@@ -528,7 +535,7 @@ ${photoOrderNote}
 
     const blogResult = await withFallback(
       () => withRetry(
-        () => blogModel.generateContent(prompt),
+        () => withTimeout(() => blogModel.generateContent(prompt), 50000),
         3, 3000,
         (attempt) => send({ type: 'status', message: `AI 서버가 바빠서 재시도 중... (${attempt}/3)` })
       ),
@@ -536,7 +543,7 @@ ${photoOrderNote}
         send({ type: 'status', message: 'AI 서버 과부하 — 대체 모델로 전환 중...' });
         const fbModel = genAI.getGenerativeModel({ model: FALLBACK_MODEL, systemInstruction: STYLE_GUIDE });
         return withRetry(
-          () => fbModel.generateContent(prompt),
+          () => withTimeout(() => fbModel.generateContent(prompt), 50000),
           2, 2000,
           (attempt) => send({ type: 'status', message: `대체 모델 재시도 중... (${attempt}/2)` })
         );
@@ -550,10 +557,10 @@ ${photoOrderNote}
       send({ type: 'status', message: '규칙 검수 중 — 자동 수정...' });
       const retryPrompt = `[규칙 위반 수정]\n다음 항목이 지켜지지 않았습니다:\n${violations.map((v) => `- ${v}`).join('\n')}\n\n위 항목만 고쳐서 전체 글을 다시 동일한 [TITLE][BODY][HASHTAGS] 형식으로 출력하세요.\n\n---\n\n${prompt}`;
       const retryResult = await withFallback(
-        () => withRetry(() => blogModel.generateContent(retryPrompt), 2, 3000),
+        () => withRetry(() => withTimeout(() => blogModel.generateContent(retryPrompt), 50000), 2, 3000),
         () => {
           const fbModel = genAI.getGenerativeModel({ model: FALLBACK_MODEL, systemInstruction: STYLE_GUIDE });
-          return withRetry(() => fbModel.generateContent(retryPrompt), 2, 2000);
+          return withRetry(() => withTimeout(() => fbModel.generateContent(retryPrompt), 50000), 2, 2000);
         }
       );
       parsed = parseBlogResponse(retryResult.response.text());
