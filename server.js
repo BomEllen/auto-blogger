@@ -644,12 +644,60 @@ ${photoOrderNote}
 });
 
 // ── 이미지 생성 ──
-function buildImagePrompt({ location, situation, subject, timeWeather, composition, details }) {
-  const sit  = situation?.trim()   || '여행';
-  const tw   = timeWeather?.trim() || '자연스러운';
-  const comp = composition?.trim() || '즉흥적인 구도';
-  const det  = details?.trim()     || '현장의 자연스러운 생활감';
-  return `${location}에서 ${sit} 중 ${subject}를 일반 여행자가 아이폰 기본 카메라로 직접 촬영한 실제 여행 기록사진처럼 만들어줘. ${tw}의 자연광과 ${comp}를 반영하고, 과보정 없는 색감, 자연스러운 스마트폰 HDR, 스마트폰 특유의 현실적인 질감이 느껴지게 해줘. ${det}이 자연스럽게 보이도록 하고, 생활감 있는 프레이밍과 즉흥적인 분위기가 느껴지게 해줘. 광고컷, 화보컷, 3D 렌더, 과한 보정, 비현실적인 조명, 지나치게 완벽한 구도, AI 일러스트 느낌은 나지 않게 해줘.`;
+const VIEWPOINT_PROMPTS = {
+  'first-person':  'Shot from the photographer\'s own first-person perspective, as if personally holding the smartphone and looking directly at the scene. The photographer does not appear in the frame.',
+  'across':        'Shot from the perspective of the person sitting or standing across from the photographer, facing toward them. The photographer does not appear in the frame.',
+  'third-party':   'Shot by a third person observing from the side or slightly behind the scene. The photographer does not appear in the frame.',
+  'selfie':        'Shot as a selfie using a front-facing smartphone camera. The photographer\'s face and arm holding the phone are visible in the frame.',
+  'trailing':      'Shot from directly behind the subject, following from a trailing perspective as they walk or move forward. The photographer does not appear in the frame.',
+  'over-shoulder': 'Shot over someone\'s shoulder in the foreground, looking past them toward the subject or scene ahead. The photographer does not appear in the frame.',
+  'top-down':      'Shot from directly above, looking straight down at the subject in a flat-lay or bird\'s-eye perspective. The photographer does not appear in the frame.',
+};
+
+const POSITION_PROMPTS = {
+  'seated-table':  'The photographer is seated at the table.',
+  'across-seat':   'The photographer is seated at the opposite seat directly across the table.',
+  'walking':       'The photographer is walking while taking the shot, giving a slight in-motion feel.',
+  'standing':      'The photographer is standing upright while taking the shot.',
+  'window-seat':   'The photographer is seated at a window seat with natural light coming in from the side.',
+  'across-street': 'The photographer is standing across the street from the subject.',
+  'in-vehicle':    'The photographer is inside a vehicle, shooting through the window.',
+};
+
+const STYLE_PROMPTS = {
+  'food-closeup': 'The composition is a tight close-up shot focused entirely on the food, filling most of the frame with rich detail.',
+  'full-table':   'The composition captures the entire table setting in a wide shot, showing all items on the table.',
+  'landscape':    'The composition is landscape-focused with the scenery or environment as the dominant subject.',
+  'portrait':     'The composition is portrait-oriented with a person as the main subject, background naturally blurred.',
+  'candid':       'The composition is a casual, candid snapshot with a natural unposed feel — as if the moment was caught spontaneously.',
+  'wide':         'The composition is a wide-angle shot capturing a broad environmental view of the space.',
+  'detail':       'The composition emphasizes fine details and textures in a close macro-style shot.',
+};
+
+function buildImagePrompt({ location, situation, subject, viewpoint, shootingPosition, photoStyle, timeWeather, details }) {
+  const sit = situation?.trim() || '';
+  const tw  = timeWeather?.trim() || 'natural daylight';
+  const det = details?.trim() || '';
+
+  const viewpointPrompt  = VIEWPOINT_PROMPTS[viewpoint] || VIEWPOINT_PROMPTS['first-person'];
+  const positionPrompt   = POSITION_PROMPTS[shootingPosition] || (shootingPosition ? `The photographer is ${shootingPosition}.` : '');
+  const stylePrompt      = STYLE_PROMPTS[photoStyle] || '';
+  const noPhotographer   = viewpoint !== 'selfie' ? 'The photographer must not appear anywhere in the image.' : '';
+  const situationClause  = sit ? `during ${sit}` : '';
+
+  return [
+    `A candid, realistic smartphone photo taken at ${location}${situationClause ? ` ${situationClause}` : ''}.`,
+    `Main subject: ${subject}.`,
+    viewpointPrompt,
+    positionPrompt,
+    stylePrompt,
+    `Lighting and time: ${tw}.`,
+    det ? `Additional details: ${det}.` : '',
+    'Shot with an iPhone default camera by a regular person. No heavy post-processing, no filters, no studio lighting.',
+    'Realistic smartphone HDR, natural color grading, authentic spontaneous framing, no commercial or advertising photography feel.',
+    'Not a 3D render, not an AI illustration, not an overly perfect or staged composition.',
+    noPhotographer,
+  ].filter(Boolean).join(' ');
 }
 
 const VALID_SIZES = new Set(['1024x1024', '1536x1024', '1024x1536']);
@@ -658,7 +706,7 @@ app.post('/api/generate-image', async (req, res) => {
   const apiKey = req.headers['x-api-key'];
   if (!apiKey) return res.status(400).json({ error: 'OpenAI API 키가 필요합니다.' });
 
-  const { location, situation, subject, timeWeather, composition, details, size = '1024x1024', rawPrompt } = req.body;
+  const { location, situation, subject, viewpoint, shootingPosition, photoStyle, timeWeather, details, size = '1024x1024', rawPrompt } = req.body;
   const safeSize = VALID_SIZES.has(size) ? size : '1024x1024';
 
   let prompt;
@@ -667,7 +715,7 @@ app.post('/api/generate-image', async (req, res) => {
   } else {
     if (!location?.trim()) return res.status(400).json({ error: '장소를 입력해주세요.' });
     if (!subject?.trim())  return res.status(400).json({ error: '피사체를 입력해주세요.' });
-    prompt = buildImagePrompt({ location: location.trim(), situation, subject: subject.trim(), timeWeather, composition, details });
+    prompt = buildImagePrompt({ location: location.trim(), situation, subject: subject.trim(), viewpoint, shootingPosition, photoStyle, timeWeather, details });
   }
   console.log(`[generate-image] size=${safeSize} prompt=${prompt.substring(0, 80)}...`);
 

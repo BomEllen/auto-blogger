@@ -7,7 +7,7 @@ export function getHTML() {
       <div class="ig-hero-inner">
         <div class="hero-badge">GPT Image</div>
         <h1 class="ig-heading">이미지 생성</h1>
-        <p class="ig-sub">장소·피사체·분위기를 입력하면 AI가 블로그용 사진을 만들어드려요</p>
+        <p class="ig-sub">장소·피사체·촬영 시점을 입력하면 AI가 블로그용 사진을 만들어드려요</p>
       </div>
     </div>
 
@@ -32,42 +32,102 @@ export function getHTML() {
       <section class="card ib-card">
         <h2 class="tg-card-title">이미지 정보 입력</h2>
 
+        <!-- 기본 정보 -->
         <div class="ig-form-grid">
           <div class="ib-field">
             <label class="ib-label" for="igLocation">장소 <span style="color:#e05555">*</span></label>
-            <input type="text" id="igLocation" class="ib-input" placeholder="예) 성수동 감성 카페" />
-          </div>
-          <div class="ib-field">
-            <label class="ib-label" for="igSubject">피사체 <span style="color:#e05555">*</span></label>
-            <input type="text" id="igSubject" class="ib-input" placeholder="예) 아이스 라떼와 케이크" />
+            <input type="text" id="igLocation" class="ib-input" placeholder="예) 성수동 감성 카페, 제주도 해변" />
           </div>
           <div class="ib-field">
             <label class="ib-label" for="igSituation">상황</label>
-            <input type="text" id="igSituation" class="ib-input" placeholder="예) 친구와 카페 데이트" />
+            <input type="text" id="igSituation" class="ib-input" placeholder="예) 여자친구 둘 카페 데이트, 혼자 여행 중" />
           </div>
           <div class="ib-field">
-            <label class="ib-label" for="igTimeWeather">시간대 / 날씨</label>
-            <input type="text" id="igTimeWeather" class="ib-input" placeholder="예) 오후 햇살, 맑은 날" />
+            <label class="ib-label" for="igSubject">피사체 <span style="color:#e05555">*</span></label>
+            <input type="text" id="igSubject" class="ib-input" placeholder="예) 아이스라떼, 딸기 케이크" />
           </div>
+        </div>
+
+        <!-- 촬영 시점 & 위치 — 강조 섹션 -->
+        <div class="ig-perspective-section">
+          <div class="ig-perspective-header">
+            <span class="ig-perspective-badge">핵심 설정</span>
+            <span class="ig-perspective-title">촬영 시점 &amp; 위치</span>
+            <span class="ig-perspective-hint">이 두 항목이 이미지 결과에 가장 큰 영향을 줘요</span>
+          </div>
+
           <div class="ib-field">
-            <label class="ib-label" for="igComposition">구도</label>
-            <select id="igComposition" class="ib-input ig-composition-select">
+            <label class="ib-label">촬영 시점</label>
+            <div class="ig-viewpoint-group">
+              <label class="ig-viewpoint-label">
+                <input type="radio" name="igViewpoint" value="first-person" checked />
+                <span>내 시점 (1인칭)</span>
+              </label>
+              <label class="ig-viewpoint-label">
+                <input type="radio" name="igViewpoint" value="across" />
+                <span>맞은편 사람 시점</span>
+              </label>
+              <label class="ig-viewpoint-label">
+                <input type="radio" name="igViewpoint" value="third-party" />
+                <span>제3자가 촬영</span>
+              </label>
+              <label class="ig-viewpoint-label">
+                <input type="radio" name="igViewpoint" value="selfie" />
+                <span>셀카</span>
+              </label>
+              <label class="ig-viewpoint-label">
+                <input type="radio" name="igViewpoint" value="trailing" />
+                <span>뒤에서 따라가는 시점</span>
+              </label>
+              <label class="ig-viewpoint-label">
+                <input type="radio" name="igViewpoint" value="over-shoulder" />
+                <span>어깨 너머 시점</span>
+              </label>
+              <label class="ig-viewpoint-label">
+                <input type="radio" name="igViewpoint" value="top-down" />
+                <span>위에서 내려다보는 시점</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="ib-field">
+            <label class="ib-label" for="igShootingPos">촬영 위치</label>
+            <select id="igShootingPos" class="ib-input">
+              <option value="seated-table">테이블에 앉아서</option>
+              <option value="across-seat">맞은편 자리에서</option>
+              <option value="walking">걸어가면서</option>
+              <option value="standing">서서</option>
+              <option value="window-seat">창가 자리</option>
+              <option value="across-street">길 건너편</option>
+              <option value="in-vehicle">차량 안</option>
+              <option value="custom">자유 입력</option>
+            </select>
+            <input type="text" id="igShootingPosCustom" class="ib-input ig-custom-input hidden" placeholder="촬영 위치를 직접 입력하세요" />
+          </div>
+        </div>
+
+        <!-- 나머지 옵션 -->
+        <div class="ig-form-grid">
+          <div class="ib-field">
+            <label class="ib-label" for="igPhotoStyle">사진 스타일</label>
+            <select id="igPhotoStyle" class="ib-input">
               <option value="">선택 안 함</option>
-              <option value="위에서 내려다보는 탑뷰 (flat lay)">탑뷰 / Flat Lay — 위에서 내려다보기</option>
-              <option value="피사체와 눈높이를 맞춘 정면 구도">아이레벨 — 피사체와 눈높이 정면</option>
-              <option value="낮은 앵글에서 올려다보는 구도">로우앵글 — 아래서 올려다보기</option>
-              <option value="피사체를 한쪽으로 치우친 3분할 구도">3분할 — 피사체를 한쪽 치우침</option>
-              <option value="피사체를 중앙에 대칭으로 배치한 구도">센터 대칭 — 정중앙 배치</option>
-              <option value="배경을 흐리게 날린 아웃포커싱 구도">아웃포커싱 — 배경 흐림 강조</option>
-              <option value="창문·문틀·손 등 프레임 안에 피사체를 담은 구도">프레임 인 프레임 — 창문·틀 활용</option>
-              <option value="피사체를 대각선 방향으로 배치한 구도">대각선 구도 — 역동적 사선 배치</option>
-              <option value="넓은 공간을 담은 광각 환경 사진 구도">광각 환경샷 — 공간 전체 담기</option>
-              <option value="피사체에 매우 가깝게 접근한 클로즈업 구도">클로즈업 — 디테일 극대화</option>
+              <option value="food-closeup">음식 클로즈업 — 음식이 프레임을 꽉 채움</option>
+              <option value="full-table">테이블 전체 — 테이블 위 전체 담기</option>
+              <option value="landscape">풍경 중심 — 배경·공간이 주인공</option>
+              <option value="portrait">인물 중심 — 사람이 주인공</option>
+              <option value="candid">자연스러운 스냅샷 — 연출 없이 찍은 느낌</option>
+              <option value="wide">넓게 담기 — 광각으로 공간 전체</option>
+              <option value="detail">디테일 강조 — 질감·세부 요소 극대화</option>
             </select>
           </div>
           <div class="ib-field">
+            <label class="ib-label" for="igTimeWeather">시간대 / 날씨</label>
+            <input type="text" id="igTimeWeather" class="ib-input" placeholder="예) 오후 햇살, 맑은 날, 흐린 저녁" />
+          </div>
+          <div class="ib-field" style="grid-column: 1 / -1">
             <label class="ib-label" for="igDetails">추가 디테일</label>
-            <input type="text" id="igDetails" class="ib-input" placeholder="예) 테이블 위 빛 반사, 따뜻한 색감" />
+            <input type="text" id="igDetails" class="ib-input" placeholder="예) 테이블 위 빛 반사, 따뜻한 색감, 손이 보이게" />
           </div>
         </div>
 
@@ -148,18 +208,25 @@ export function mount() {
   let apiKey = '';
   let lastGenFn = null;
 
-  const igApiKey        = document.getElementById('igApiKey');
-  const igConnectBtn    = document.getElementById('igConnectBtn');
-  const igApiError      = document.getElementById('igApiError');
-  const igApiOk         = document.getElementById('igApiOk');
-  const igGenerateBtn   = document.getElementById('igGenerateBtn');
+  const igApiKey          = document.getElementById('igApiKey');
+  const igConnectBtn      = document.getElementById('igConnectBtn');
+  const igApiError        = document.getElementById('igApiError');
+  const igApiOk           = document.getElementById('igApiOk');
+  const igGenerateBtn     = document.getElementById('igGenerateBtn');
   const igFreeGenerateBtn = document.getElementById('igFreeGenerateBtn');
-  const igLoading       = document.getElementById('igLoading');
-  const igError         = document.getElementById('igError');
-  const igResultCard    = document.getElementById('igResultCard');
-  const igResultImg     = document.getElementById('igResultImg');
-  const igRegenerateBtn = document.getElementById('igRegenerateBtn');
-  const igDownloadBtn   = document.getElementById('igDownloadBtn');
+  const igLoading         = document.getElementById('igLoading');
+  const igError           = document.getElementById('igError');
+  const igResultCard      = document.getElementById('igResultCard');
+  const igResultImg       = document.getElementById('igResultImg');
+  const igRegenerateBtn   = document.getElementById('igRegenerateBtn');
+  const igDownloadBtn     = document.getElementById('igDownloadBtn');
+  const igShootingPos     = document.getElementById('igShootingPos');
+  const igShootingPosCustom = document.getElementById('igShootingPosCustom');
+
+  // 촬영 위치 자유 입력 토글
+  igShootingPos.addEventListener('change', () => {
+    igShootingPosCustom.classList.toggle('hidden', igShootingPos.value !== 'custom');
+  });
 
   // 저장된 OpenAI 키 자동 복구
   const saved = sessionStorage.getItem('openai_image_key');
@@ -181,6 +248,12 @@ export function mount() {
 
   function getSize()     { return document.querySelector('input[name="igSize"]:checked')?.value     || '1024x1024'; }
   function getFreeSize() { return document.querySelector('input[name="igFreeSize"]:checked')?.value || '1024x1024'; }
+  function getViewpoint() { return document.querySelector('input[name="igViewpoint"]:checked')?.value || 'first-person'; }
+  function getShootingPosition() {
+    const val = igShootingPos.value;
+    if (val === 'custom') return igShootingPosCustom.value.trim();
+    return val;
+  }
 
   function setGenerating(on) {
     igGenerateBtn.disabled     = on;
@@ -227,11 +300,13 @@ export function mount() {
     await runGenerate({
       location,
       subject,
-      situation:   document.getElementById('igSituation').value.trim(),
-      timeWeather: document.getElementById('igTimeWeather').value.trim(),
-      composition: document.getElementById('igComposition').value,
-      details:     document.getElementById('igDetails').value.trim(),
-      size:        getSize(),
+      situation:       document.getElementById('igSituation').value.trim(),
+      viewpoint:       getViewpoint(),
+      shootingPosition: getShootingPosition(),
+      photoStyle:      document.getElementById('igPhotoStyle').value,
+      timeWeather:     document.getElementById('igTimeWeather').value.trim(),
+      details:         document.getElementById('igDetails').value.trim(),
+      size:            getSize(),
     });
   }
 

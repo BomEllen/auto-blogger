@@ -1009,12 +1009,51 @@ body {
 }
 @media (max-width: 560px) { .ig-form-grid { grid-template-columns: 1fr; } }
 
-.ig-composition-select {
-  appearance: none; -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2' stroke='%236B7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m19.5 8.25-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
-  background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;
-  padding-right: 36px; cursor: pointer; width: 100%;
+/* ── 촬영 시점 & 위치 강조 섹션 ── */
+.ig-perspective-section {
+  background: linear-gradient(135deg, rgba(143,204,42,0.08) 0%, rgba(80,160,20,0.05) 100%);
+  border: 1.5px solid rgba(143,204,42,0.35);
+  border-radius: var(--radius-sm);
+  padding: 18px;
+  display: flex; flex-direction: column; gap: 16px;
 }
+.ig-perspective-header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ig-perspective-badge {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px; border-radius: 99px;
+  background: var(--accent); color: var(--text);
+  font-size: 11px; font-weight: 800; letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+.ig-perspective-title { font-size: 15px; font-weight: 700; color: var(--text); }
+.ig-perspective-hint { font-size: 12px; color: var(--text-2); }
+
+/* 촬영 시점 라디오 버튼 */
+.ig-viewpoint-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.ig-viewpoint-label {
+  display: flex; align-items: center; gap: 0;
+  cursor: pointer;
+}
+.ig-viewpoint-label input[type="radio"] { display: none; }
+.ig-viewpoint-label span {
+  display: inline-block;
+  padding: 7px 14px;
+  border-radius: 99px;
+  border: 1.5px solid var(--border);
+  background: var(--glass);
+  font-size: 13px; color: var(--text-2);
+  transition: all 0.15s; cursor: pointer;
+}
+.ig-viewpoint-label input[type="radio"]:checked + span {
+  border-color: var(--accent);
+  background: rgba(143,204,42,0.15);
+  color: var(--text);
+  font-weight: 600;
+}
+.ig-viewpoint-label:hover span { border-color: rgba(143,204,42,0.5); color: var(--text); }
+
+.ig-custom-input { margin-top: 8px; }
+.ig-custom-input.hidden { display: none; }
 
 .ig-size-group { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 4px; }
 .ig-size-label { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--text); cursor: pointer; }
