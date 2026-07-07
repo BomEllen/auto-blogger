@@ -92,7 +92,7 @@ export function getHTML() {
           <div class="ib-ref-previews" id="ibRefPreviews"></div>
         </div>
 
-        <button class="btn-tg-generate" id="ibGenerateBtn" disabled>
+        <button class="btn-tg-generate" id="ibGenerateBtn">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
           </svg>
@@ -188,7 +188,6 @@ export function mount() {
   if (apiKey) {
     ibApiConnected.classList.remove('hidden');
     ibMaskedKey.textContent = apiKey.slice(0, 8) + '••••••••••••••••••••' + apiKey.slice(-4);
-    ibGenerateBtn.disabled = false;
   } else {
     ibApiMissing.classList.remove('hidden');
   }
@@ -233,7 +232,24 @@ export function mount() {
   ibGenerateBtn.addEventListener('click', async () => {
     const mainKeyword = ibMainKeyword.value.trim();
     const actualInfo = ibActualInfo.value.trim();
-    if (!mainKeyword || !actualInfo || !apiKey) return;
+
+    if (!apiKey) {
+      ibError.textContent = 'API 키가 없어요. 홈에서 먼저 Gemini API 키를 연동해주세요.';
+      ibError.classList.remove('hidden');
+      return;
+    }
+    if (!mainKeyword) {
+      ibError.textContent = '핵심 키워드를 입력해주세요.';
+      ibError.classList.remove('hidden');
+      ibMainKeyword.focus();
+      return;
+    }
+    if (!actualInfo) {
+      ibError.textContent = '실제 정보를 입력해주세요.';
+      ibError.classList.remove('hidden');
+      ibActualInfo.focus();
+      return;
+    }
 
     ibError.classList.add('hidden');
     ibResultCard.classList.add('hidden');

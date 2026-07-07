@@ -326,10 +326,10 @@ app.post('/api/generate-info-blog', upload.array('refImages', 10), async (req, r
       const refModel = genAI.getGenerativeModel({ model: GEMINI_MODEL });
       const analyses = await Promise.all(refImages.map(async (img, i) => {
         try {
-          const result = await withRetry(() => refModel.generateContent([
+          const result = await withRetry(() => withTimeout(() => refModel.generateContent([
             imagePart(img),
             '이 이미지에서 블로그 글 작성에 참고할 수 있는 정보, 수치, 사실을 추출하세요. 핵심 정보만 2~3문장으로 요약하세요.',
-          ]));
+          ]), 30000));
           return `참고 이미지 ${i + 1}: ${result.response.text().trim()}`;
         } catch { return null; }
       }));
@@ -359,7 +359,7 @@ app.post('/api/generate-info-blog', upload.array('refImages', 10), async (req, r
 ${searchTopics.trim()}
 
 각 항목별로 사실 위주로 간결하게 정리하세요. 불확실한 정보는 포함하지 마세요.`;
-        const searchResult = await withRetry(() => searchModel.generateContent(searchPrompt));
+        const searchResult = await withRetry(() => withTimeout(() => searchModel.generateContent(searchPrompt), 30000));
         const fetched = searchResult.response.text().trim();
         if (fetched) {
           searchedInfoSection = `\n[검색된 최신 정보 — 아래 내용을 글에 정확하게 반영하세요]\n${fetched}\n`;
@@ -380,10 +380,10 @@ ${searchTopics.trim()}
 ${refSection}${searchedInfoSection}`;
 
     const result = await withFallback(
-      () => withRetry(() => model.generateContent(prompt)),
+      () => withRetry(() => withTimeout(() => model.generateContent(prompt), 50000)),
       () => {
         const fb = genAI.getGenerativeModel({ model: FALLBACK_MODEL, systemInstruction: INFO_BLOG_GUIDE });
-        return withRetry(() => fb.generateContent(prompt), 3, 2000);
+        return withRetry(() => withTimeout(() => fb.generateContent(prompt), 50000), 3, 2000);
       }
     );
     const text = result.response.text().trim();
