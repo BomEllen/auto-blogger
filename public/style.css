@@ -498,6 +498,14 @@ body {
 }
 .thumb-del:hover { background: #ffd6e0; border-color: #ffc0d0; }
 .thumb-del svg { width: 10px; height: 10px; color: #888; }
+.thumb-orig-toggle {
+  position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
+  font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
+  border: none; cursor: pointer; white-space: nowrap;
+  background: rgba(0,0,0,0.45); color: rgba(255,255,255,0.7);
+  transition: background 0.15s, color 0.15s;
+}
+.thumb-orig-toggle.is-orig { background: rgba(143,204,42,0.85); color: #fff; }
 
 /* ── 생성 버튼 ── */
 .generate-section { display: flex; justify-content: center; }

@@ -361,6 +361,33 @@ export function mount() {
   let dragSrcSection = null;
   let lightboxObjectUrl = null;
   const thumbnailCache = new Map();
+  const originalFiles = new Set(); // 원본 유지 선택된 파일
+
+  async function compressImage(file, maxPx = 1600, quality = 0.85) {
+    if (file.size < 500 * 1024) return file;
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const { naturalWidth: w, naturalHeight: h } = img;
+        let nw = w, nh = h;
+        if (w > maxPx || h > maxPx) {
+          if (w >= h) { nw = maxPx; nh = Math.round(h * maxPx / w); }
+          else { nh = maxPx; nw = Math.round(w * maxPx / h); }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = nw; canvas.height = nh;
+        canvas.getContext('2d').drawImage(img, 0, 0, nw, nh);
+        canvas.toBlob(blob => {
+          if (!blob || blob.size >= file.size) resolve(file);
+          else resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    });
+  }
 
   const CATEGORY_SECTIONS = {
     cafe:          ['외관 및 주차 정보', '메뉴', '내부 인테리어 & 분위기', '메뉴 리뷰', '총평'],
@@ -391,6 +418,7 @@ export function mount() {
       const u = thumbnailCache.get(f);
       if (u) { URL.revokeObjectURL(u); thumbnailCache.delete(f); }
     }));
+    originalFiles.clear();
     sections = (CATEGORY_SECTIONS[category] || []).map(name => ({ name, photos: [], fixed: true }));
   }
 
@@ -642,6 +670,7 @@ export function mount() {
     const file = sections[sectionIdx].photos[photoIdx];
     const url = thumbnailCache.get(file);
     if (url) { URL.revokeObjectURL(url); thumbnailCache.delete(file); }
+    originalFiles.delete(file);
     sections[sectionIdx].photos.splice(photoIdx, 1);
     renderSectionGrid(sectionIdx);
   }
@@ -760,6 +789,15 @@ export function mount() {
       const img = document.createElement('img');
       img.src = thumbUrls[i];
       img.draggable = false;
+      const origToggle = document.createElement('button');
+      origToggle.className = 'thumb-orig-toggle' + (originalFiles.has(file) ? ' is-orig' : '');
+      origToggle.title = '원본/압축 전환';
+      origToggle.textContent = originalFiles.has(file) ? '원본' : '압축';
+      origToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (originalFiles.has(file)) { originalFiles.delete(file); origToggle.classList.remove('is-orig'); origToggle.textContent = '압축'; }
+        else { originalFiles.add(file); origToggle.classList.add('is-orig'); origToggle.textContent = '원본'; }
+      });
       const delBtn = document.createElement('button');
       delBtn.className = 'thumb-del';
       delBtn.title = '삭제';
@@ -784,7 +822,7 @@ export function mount() {
           renderSectionGrid(sectionIdx);
         }
       });
-      thumb.append(img, num, delBtn);
+      thumb.append(img, num, origToggle, delBtn);
       grid.appendChild(thumb);
     });
   }
@@ -873,7 +911,13 @@ export function mount() {
     const validSections = sections.filter(s => s.photos.length > 0);
     fd.append('sectionNames', JSON.stringify(validSections.map(s => s.name || '기타')));
     fd.append('sectionCounts', JSON.stringify(validSections.map(s => s.photos.length)));
-    validSections.forEach(s => s.photos.forEach(f => fd.append('photos', f)));
+
+    progressStatus.textContent = '사진 압축 중...';
+    const allPhotos = validSections.flatMap(s => s.photos);
+    const processed = await Promise.all(
+      allPhotos.map(f => originalFiles.has(f) ? Promise.resolve(f) : compressImage(f))
+    );
+    processed.forEach(f => fd.append('photos', f));
 
     try {
       const headers = { 'x-api-key': connectedApiKey };
