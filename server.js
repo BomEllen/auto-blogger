@@ -742,6 +742,43 @@ app.post('/api/generate-image', async (req, res) => {
   }
 });
 
+// ── 이미지 편집 / 합성 ──
+app.post('/api/edit-image', upload.single('image'), async (req, res) => {
+  const apiKey = req.headers['x-api-key'];
+  if (!apiKey) return res.status(400).json({ error: 'OpenAI API 키가 필요합니다.' });
+  if (!req.file) return res.status(400).json({ error: '이미지를 업로드해주세요.' });
+
+  const { prompt, size = '1024x1024' } = req.body;
+  if (!prompt?.trim()) return res.status(400).json({ error: '프롬프트를 입력해주세요.' });
+
+  const safeSize = VALID_SIZES.has(size) ? size : '1024x1024';
+  console.log(`[edit-image] size=${safeSize} prompt=${prompt.substring(0, 80)}...`);
+
+  try {
+    const openai = new OpenAI({ apiKey });
+    const response = await openai.images.edit({
+      model: 'gpt-image-1',
+      image: fs.createReadStream(req.file.path),
+      prompt: prompt.trim(),
+      size: safeSize,
+      n: 1,
+    });
+    const b64 = response.data[0].b64_json;
+    res.json({ image: `data:image/png;base64,${b64}` });
+  } catch (err) {
+    console.error('[edit-image] error:', err.message);
+    const msg = err?.message || String(err);
+    const status = err?.status;
+    let friendlyMsg;
+    if (status === 401 || status === 403) friendlyMsg = 'OpenAI API 키가 유효하지 않아요.';
+    else if (status === 429) friendlyMsg = 'OpenAI API 요청 한도를 초과했어요. 잠시 후 다시 시도해주세요.';
+    else friendlyMsg = msg.substring(0, 300);
+    res.status(500).json({ error: friendlyMsg });
+  } finally {
+    cleanupFiles(req.file);
+  }
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 const PORT = parseInt(process.env.PORT || '4000');

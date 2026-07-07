@@ -178,6 +178,55 @@ export function getHTML() {
         </button>
       </section>
 
+      <!-- 구분선 -->
+      <div class="ig-free-divider"><span>또는</span></div>
+
+      <!-- 이미지 편집 / 합성 -->
+      <section class="card ib-card">
+        <h2 class="tg-card-title">이미지 편집 / 합성</h2>
+        <p class="ib-hint" style="margin-top:-10px">사진을 올리고 무엇을 추가하거나 바꿀지 입력하면 AI가 합성해드려요</p>
+
+        <div class="ib-field">
+          <label class="ib-label">원본 이미지 업로드 <span style="color:#e05555">*</span></label>
+          <div class="ig-edit-upload-zone" id="igEditUploadZone">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+            </svg>
+            <span class="ig-edit-upload-text">클릭하거나 사진을 드래그하세요</span>
+            <span class="ig-edit-upload-sub">PNG · JPG · WEBP</span>
+            <input type="file" id="igEditImageInput" accept="image/png,image/jpeg,image/webp" hidden />
+          </div>
+          <div class="ig-edit-preview-wrap hidden" id="igEditPreviewWrap">
+            <img class="ig-edit-preview-img" id="igEditPreviewImg" src="" alt="원본 이미지" />
+            <button class="ig-edit-clear-btn" id="igEditClearBtn" title="제거">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="ib-field">
+          <label class="ib-label" for="igEditPrompt">어떻게 수정할까요? <span style="color:#e05555">*</span></label>
+          <textarea id="igEditPrompt" class="ib-textarea" rows="4"
+            placeholder="예) 테이블 위에 아이스 아메리카노 한 잔을 추가해줘&#10;예) 배경을 노을 지는 한강으로 바꿔줘&#10;예) 오른쪽 빈 의자에 강아지를 앉혀줘"></textarea>
+        </div>
+
+        <div class="ib-field">
+          <label class="ib-label">이미지 비율</label>
+          <div class="ig-size-group">
+            <label class="ig-size-label"><input type="radio" name="igEditSize" value="1024x1024" checked /> 정방형 1:1</label>
+            <label class="ig-size-label"><input type="radio" name="igEditSize" value="1536x1024" /> 가로형 3:2</label>
+            <label class="ig-size-label"><input type="radio" name="igEditSize" value="1024x1536" /> 세로형 2:3</label>
+          </div>
+        </div>
+
+        <button class="btn-ig-generate btn-ig-edit" id="igEditGenerateBtn">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+          </svg>
+          이미지 편집하기
+        </button>
+      </section>
+
       <!-- 로딩 -->
       <div class="ig-loading hidden" id="igLoading">
         <div class="spinner"></div>
@@ -220,13 +269,48 @@ export function mount() {
   const igResultImg       = document.getElementById('igResultImg');
   const igRegenerateBtn   = document.getElementById('igRegenerateBtn');
   const igDownloadBtn     = document.getElementById('igDownloadBtn');
-  const igShootingPos     = document.getElementById('igShootingPos');
+  const igShootingPos       = document.getElementById('igShootingPos');
   const igShootingPosCustom = document.getElementById('igShootingPosCustom');
+  const igEditGenerateBtn   = document.getElementById('igEditGenerateBtn');
+  const igEditUploadZone    = document.getElementById('igEditUploadZone');
+  const igEditImageInput    = document.getElementById('igEditImageInput');
+  const igEditPreviewWrap   = document.getElementById('igEditPreviewWrap');
+  const igEditPreviewImg    = document.getElementById('igEditPreviewImg');
+  const igEditClearBtn      = document.getElementById('igEditClearBtn');
+
+  let editImageFile = null;
 
   // 촬영 위치 자유 입력 토글
   igShootingPos.addEventListener('change', () => {
     igShootingPosCustom.classList.toggle('hidden', igShootingPos.value !== 'custom');
   });
+
+  // 이미지 업로드 존
+  igEditUploadZone.addEventListener('click', () => igEditImageInput.click());
+  igEditUploadZone.addEventListener('dragover', (e) => { e.preventDefault(); igEditUploadZone.classList.add('drag-over'); });
+  igEditUploadZone.addEventListener('dragleave', () => igEditUploadZone.classList.remove('drag-over'));
+  igEditUploadZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    igEditUploadZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) setEditImage(file);
+  });
+  igEditImageInput.addEventListener('change', () => {
+    if (igEditImageInput.files[0]) setEditImage(igEditImageInput.files[0]);
+  });
+  igEditClearBtn.addEventListener('click', () => {
+    editImageFile = null;
+    igEditImageInput.value = '';
+    igEditPreviewWrap.classList.add('hidden');
+    igEditUploadZone.classList.remove('hidden');
+  });
+
+  function setEditImage(file) {
+    editImageFile = file;
+    igEditPreviewImg.src = URL.createObjectURL(file);
+    igEditUploadZone.classList.add('hidden');
+    igEditPreviewWrap.classList.remove('hidden');
+  }
 
   // 저장된 OpenAI 키 자동 복구
   const saved = sessionStorage.getItem('openai_image_key');
@@ -258,6 +342,7 @@ export function mount() {
   function setGenerating(on) {
     igGenerateBtn.disabled     = on;
     igFreeGenerateBtn.disabled = on;
+    igEditGenerateBtn.disabled = on;
     igRegenerateBtn.disabled   = on;
     if (on) {
       igError.classList.add('hidden');
@@ -318,7 +403,41 @@ export function mount() {
     await runGenerate({ rawPrompt, size: getFreeSize() });
   }
 
+  async function generateEdit() {
+    if (!apiKey) { showApiError('먼저 OpenAI API 키를 연동해주세요.'); return; }
+    if (!editImageFile) { igError.textContent = '편집할 이미지를 업로드해주세요.'; igError.classList.remove('hidden'); return; }
+    const prompt = document.getElementById('igEditPrompt').value.trim();
+    if (!prompt) { igError.textContent = '수정 내용을 입력해주세요.'; igError.classList.remove('hidden'); return; }
+    const size = document.querySelector('input[name="igEditSize"]:checked')?.value || '1024x1024';
+
+    lastGenFn = generateEdit;
+    setGenerating(true);
+    try {
+      const fd = new FormData();
+      fd.append('image', editImageFile);
+      fd.append('prompt', prompt);
+      fd.append('size', size);
+      const resp = await fetch('/api/edit-image', {
+        method: 'POST',
+        headers: { 'x-api-key': apiKey },
+        body: fd,
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || `오류 ${resp.status}`);
+      igResultImg.src = data.image;
+      igDownloadBtn.href = data.image;
+      igResultCard.classList.remove('hidden');
+      igResultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (err) {
+      igError.textContent = err.message;
+      igError.classList.remove('hidden');
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   igGenerateBtn.addEventListener('click', generate);
   igFreeGenerateBtn.addEventListener('click', generateFree);
+  igEditGenerateBtn.addEventListener('click', generateEdit);
   igRegenerateBtn.addEventListener('click', () => lastGenFn?.());
 }
