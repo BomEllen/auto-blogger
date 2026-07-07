@@ -37,6 +37,16 @@ export function getHTML() {
           <h2 class="tg-card-title">블로그 본문</h2>
           <p class="tg-card-desc">완성된 블로그 본문을 아래에 붙여넣어 주세요</p>
         </div>
+
+        <div class="tg-naver-row">
+          <label class="tg-naver-label" for="tgNaverQuery">
+            네이버 검색 키워드
+            <span class="tag-optional">선택</span>
+          </label>
+          <p class="tg-naver-hint">입력하면 네이버에서 실제 상위 노출 제목을 참고해서 만들어요 (예: 성수동 카페)</p>
+          <input type="text" id="tgNaverQuery" class="tg-naver-input" placeholder="예) 성수동 카페, 홍대 맛집" />
+        </div>
+
         <textarea
           id="tgBodyInput"
           class="tg-body-textarea"
@@ -120,10 +130,11 @@ export function mount() {
     tgGenerateBtn.disabled = true;
 
     try {
+      const naverQuery = document.getElementById('tgNaverQuery').value.trim();
       const res = await fetch('/api/generate-title', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-        body: JSON.stringify({ body }),
+        body: JSON.stringify({ body, ...(naverQuery && { naverQuery }) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '제목 생성에 실패했어요.');

@@ -131,6 +131,23 @@ function cleanupFiles(files) {
   }
 }
 
+async function fetchNaverBlogTitles(query) {
+  const clientId     = process.env.NAVER_CLIENT_ID;
+  const clientSecret = process.env.NAVER_CLIENT_SECRET;
+  if (!clientId || !clientSecret || !query?.trim()) return [];
+  try {
+    const url = `https://openapi.naver.com/v1/search/blog?query=${encodeURIComponent(query.trim())}&display=20&sort=sim`;
+    const resp = await fetch(url, {
+      headers: { 'X-Naver-Client-Id': clientId, 'X-Naver-Client-Secret': clientSecret },
+    });
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    return (data.items || []).map(item => item.title.replace(/<[^>]+>/g, '').trim()).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 function withTimeout(fn, ms) {
   return Promise.race([
     fn(),
@@ -225,17 +242,22 @@ app.post('/api/verify-key', async (req, res) => {
 app.post('/api/generate-title', async (req, res) => {
   const apiKey = req.headers['x-api-key'];
   if (!apiKey) return res.status(400).json({ error: 'API 키가 필요합니다.' });
-  const { body } = req.body;
+  const { body, naverQuery } = req.body;
   if (!body?.trim()) return res.status(400).json({ error: '본문 내용이 없습니다.' });
 
   try {
+    const [naverTitles] = await Promise.all([fetchNaverBlogTitles(naverQuery)]);
+    const naverBlock = naverTitles.length > 0
+      ? `\n[네이버 상위 노출 제목 샘플 — 아래 제목들의 키워드 패턴을 분석해 반영하세요]\n${naverTitles.slice(0, 15).join('\n')}\n`
+      : '';
+
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
     const prompt = `아래 블로그 본문을 읽고 네이버 블로그 SEO에 최적화된 제목을 생성하세요.
-
+${naverBlock}
 [제목 작성 규칙]
-1. 본문 내용과 관련된 핵심 키워드, 연관 키워드, 브랜드 키워드를 먼저 추출한다.
-2. 검색량이 있는 키워드를 우선 사용하되 본문 내용과 반드시 일치해야 한다.
+1. 네이버 상위 노출 제목 샘플이 있다면, 자주 등장하는 키워드 조합 패턴을 최우선으로 반영한다.
+2. 본문 내용과 반드시 일치하는 키워드만 사용한다.
 3. 키워드를 나열하지 말고 자연스러운 한 문장으로 구성한다.
 4. 하나의 제목 안에서 여러 롱테일 키워드가 검색될 수 있도록 설계한다.
 5. 공백 포함 40자 이내, 중복 단어·이모티콘·의미 없는 수식어·감성 표현은 최소화한다.
@@ -445,6 +467,10 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
 
     send({ type: 'status', message: `사진 ${photos.length}장 분석 중...` });
 
+    // 네이버 블로그 제목 검색 (사진 분석과 병렬 실행)
+    const naverQuery = [info.name, categoryName].filter(Boolean).join(' ');
+    const naverTitlesPromise = fetchNaverBlogTitles(naverQuery);
+
     // 사진 설명 — 병렬 처리
     const allPhotoTasks = [];
     let globalIdx = 1;
@@ -542,12 +568,17 @@ ${STYLE_SAMPLES}
 위 샘플의 문체와 말투를 그대로 유지하면서, 아래 정보로 블로그 글을 작성하세요.`
       : '';
 
+    const naverTitles = await naverTitlesPromise;
+    const naverBlock = naverTitles.length > 0
+      ? `[네이버 상위 노출 제목 샘플 — [TITLE] 작성 시 이 제목들의 키워드 패턴을 분석해 반영하세요]\n${naverTitles.slice(0, 15).join('\n')}\n`
+      : '';
+
     const prompt = `${samplesSection}
 
 ${fieldInfo}
 
 별점: ${ratingNum}점 / 5점
-${memoBlock}${affiliateLinkBlock}${sectionListBlock}
+${memoBlock}${affiliateLinkBlock}${sectionListBlock}${naverBlock}
 [사진 분석 결과 — 총 ${photos.length}장, 목차별 분류 / 각 목차의 사진을 해당 섹션 본문에 순서대로 배치]
 ${photoBlockBySection}
 ${photoOrderNote}
