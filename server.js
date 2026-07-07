@@ -103,6 +103,21 @@ function validateBlogOutput(parsed, photoCount) {
     }
   }
 
+  // 사진 마커 개수 검증 — 제공된 사진 수와 마커 수가 일치해야 함
+  if (photoCount > 0) {
+    if (markers.length !== photoCount) {
+      violations.push(`사진 마커 ${markers.length}개 — 제공된 사진 ${photoCount}장과 불일치. [사진1]~[사진${photoCount}] 모두 등장해야 함`);
+    } else {
+      // 1~N이 빠짐없이 있는지 확인
+      const markerSet = new Set(markers);
+      const missing = [];
+      for (let i = 1; i <= photoCount; i++) { if (!markerSet.has(i)) missing.push(i); }
+      if (missing.length > 0) {
+        violations.push(`[사진${missing.join('], [사진')}] 마커 누락 — 모든 사진에 마커가 있어야 함`);
+      }
+    }
+  }
+
   // 기본 정보 박스 존재 여부 (📍가 없으면 기본 정보 박스 누락)
   if (!(parsed.body || '').includes('📍')) {
     violations.push('기본 정보 박스(📍⏰🚗📶) 누락 — 목차 아래에 반드시 포함');
