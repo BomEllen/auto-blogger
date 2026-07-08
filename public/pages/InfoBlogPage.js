@@ -134,14 +134,6 @@ export function getHTML() {
           <div class="result-body-box" id="ibBodyOutput" contenteditable="true" spellcheck="false"></div>
         </div>
 
-        <div class="result-section">
-          <div class="result-label-row">
-            <span class="result-label">해시태그</span>
-            <span class="result-hint">각 태그를 클릭하면 복사돼요</span>
-          </div>
-          <div class="result-tags-box" id="ibTagsOutput"></div>
-        </div>
-
         <div class="result-section hidden" id="ibLinkSuggestionSection">
           <div class="result-label-row">
             <span class="result-label">제휴 링크 추천</span>
@@ -181,7 +173,6 @@ export function mount() {
   const ibResultCard = document.getElementById('ibResultCard');
   const ibTitleOutput = document.getElementById('ibTitleOutput');
   const ibBodyOutput = document.getElementById('ibBodyOutput');
-  const ibTagsOutput = document.getElementById('ibTagsOutput');
   const ibLinkSuggestionSection = document.getElementById('ibLinkSuggestionSection');
   const ibLinkSuggestionOutput = document.getElementById('ibLinkSuggestionOutput');
 
@@ -278,15 +269,6 @@ export function mount() {
       ibTitleOutput.textContent = data.title;
       ibBodyOutput.textContent = data.body;
 
-      ibTagsOutput.innerHTML = '';
-      data.hashtags.split(/\s+/).filter(t => t).forEach(tag => {
-        const chip = document.createElement('span');
-        chip.className = 'tag-chip';
-        chip.textContent = tag.startsWith('#') ? tag : '#' + tag;
-        chip.addEventListener('click', () => copyText(chip.textContent, '태그'));
-        ibTagsOutput.appendChild(chip);
-      });
-
       if (data.linkSuggestion) {
         ibLinkSuggestionOutput.textContent = data.linkSuggestion;
         ibLinkSuggestionSection.classList.remove('hidden');
@@ -311,7 +293,7 @@ export function mount() {
     copyText(ibBodyOutput.textContent, '본문');
   });
   document.getElementById('ibCopyAll').addEventListener('click', () => {
-    const all = `${ibTitleOutput.textContent}\n\n${ibBodyOutput.textContent}\n\n${ibTagsOutput.textContent}`;
+    const all = `${ibTitleOutput.textContent}\n\n${ibBodyOutput.textContent}`;
     copyText(all, '전체');
   });
 

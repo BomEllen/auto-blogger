@@ -583,7 +583,6 @@ ${refSection}${searchedInfoSection}`;
     res.json({
       title: extract('TITLE'),
       body: extract('BODY'),
-      hashtags: extract('HASHTAGS'),
       ...(linkSuggestion && { linkSuggestion }),
     });
   } catch (err) {
