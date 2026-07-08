@@ -477,7 +477,7 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
     if (sectionGroups.length === 0) sectionGroups.push({ name: '전체', photos });
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const descModel = genAI.getGenerativeModel({ model: FALLBACK_MODEL });
+    const descModel = genAI.getGenerativeModel({ model: GEMINI_MODEL });
     const blogModel = genAI.getGenerativeModel({ model: GEMINI_MODEL, systemInstruction: STYLE_GUIDE });
 
     send({ type: 'status', message: `사진 ${photos.length}장 분석 중...` });
@@ -595,6 +595,7 @@ ${fieldInfo}
 별점: ${ratingNum}점 / 5점
 ${memoBlock}${affiliateLinkBlock}${sectionListBlock}${naverBlock}
 [사진 분석 결과 — 총 ${photos.length}장, 목차별 분류 / 각 목차의 사진을 해당 섹션 본문에 순서대로 배치]
+★★★ 절대 규칙: 각 [사진N]의 본문은 반드시 아래 분석 결과에 있는 내용만 바탕으로 작성하세요. 분석에 없는 내용을 창작하거나 추가하는 것은 절대 금지입니다. ★★★
 ${photoBlockBySection}
 ${photoOrderNote}
 `;
