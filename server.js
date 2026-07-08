@@ -58,11 +58,36 @@ function getExtractionFields(category) {
   return '{}';
 }
 
+function formatHours(hoursStr) {
+  if (!hoursStr) return hoursStr;
+  const DAY_ORDER = ['월', '화', '수', '목', '금', '토', '일'];
+  const dayMap = {};
+  const entries = hoursStr.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
+  for (const entry of entries) {
+    const m = entry.match(/^(월|화|수|목|금|토|일)(요일)?\s*(.+)$/);
+    if (m) dayMap[m[1]] = m[3].trim().replace(/\s*-\s*/g, '-');
+  }
+  if (Object.keys(dayMap).length === 0) return hoursStr;
+  const days = DAY_ORDER.filter(d => dayMap[d]);
+  const groups = [];
+  let i = 0;
+  while (i < days.length) {
+    const time = dayMap[days[i]];
+    let j = i + 1;
+    while (j < days.length && dayMap[days[j]] === time && DAY_ORDER.indexOf(days[j]) === DAY_ORDER.indexOf(days[j - 1]) + 1) j++;
+    const span = days.slice(i, j);
+    groups.push(span.length === 1 ? `${span[0]} ${time}` : `${span[0]}~${span[span.length - 1]} ${time}`);
+    i = j;
+  }
+  return groups.join(' / ');
+}
+
 function buildCategoryInfoText(category, info) {
-  if (category === 'cafe') return `카페 정보:\n- 카페명: ${info.name}\n- 위치: ${info.location}\n- 영업시간: ${info.hours || '미입력'}\n- 주차: ${info.parking || '미입력'}\n- 편의시설: ${info.amenities || '미입력'}`;
-  if (category === 'restaurant') return `음식점 정보:\n- 식당명: ${info.name}\n- 위치: ${info.location}\n- 영업시간: ${info.hours || '미입력'}\n- 대표메뉴 및 가격: ${info.menu || '미입력'}\n- 예약: ${info.reservation || '미입력'}\n- 주차: ${info.parking || '미입력'}`;
+  const hours = formatHours(info.hours) || '미입력';
+  if (category === 'cafe') return `카페 정보:\n- 카페명: ${info.name}\n- 위치: ${info.location}\n- 영업시간: ${hours}\n- 주차: ${info.parking || '미입력'}\n- 편의시설: ${info.amenities || '미입력'}`;
+  if (category === 'restaurant') return `음식점 정보:\n- 식당명: ${info.name}\n- 위치: ${info.location}\n- 영업시간: ${hours}\n- 대표메뉴 및 가격: ${info.menu || '미입력'}\n- 예약: ${info.reservation || '미입력'}\n- 주차: ${info.parking || '미입력'}`;
   if (category === 'accommodation') return `숙소 정보:\n- 숙소명: ${info.name}\n- 위치: ${info.location}\n- 1박 가격: ${info.price || '미입력'}\n- 체크인: ${info.checkin || '미입력'}\n- 체크아웃: ${info.checkout || '미입력'}\n- 전화번호: ${info.phone || '미입력'}`;
-  if (category === 'etc') return `장소 정보:\n- 장소명: ${info.name}\n- 위치: ${info.location}\n- 영업시간: ${info.hours || '미입력'}\n- 주차: ${info.parking || '미입력'}\n- 기타 정보: ${info.extra || '미입력'}`;
+  if (category === 'etc') return `장소 정보:\n- 장소명: ${info.name}\n- 위치: ${info.location}\n- 영업시간: ${hours}\n- 주차: ${info.parking || '미입력'}\n- 기타 정보: ${info.extra || '미입력'}`;
   return '';
 }
 
