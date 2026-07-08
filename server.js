@@ -782,7 +782,7 @@ app.post('/api/edit-image', upload.single('image'), async (req, res) => {
 app.use(express.static(path.join(__dirname, 'public')));
 
 const PORT = parseInt(process.env.PORT || '4000');
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n찍기만 해! 서버: http://localhost:${PORT}\n`);
 }).on('error', (err) => {
   if (err.code === 'EADDRINUSE') {

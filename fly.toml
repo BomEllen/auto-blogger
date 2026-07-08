@@ -1,0 +1,20 @@
+app = 'yeonnog-blog'
+primary_region = 'nrt'
+
+[build]
+
+[env]
+  NODE_ENV = 'production'
+  GEMINI_MODEL = 'gemini-2.5-flash-lite'
+
+[http_service]
+  internal_port = 4000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  memory = '256mb'
+  cpu_kind = 'shared'
+  cpus = 1
