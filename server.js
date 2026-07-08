@@ -105,14 +105,9 @@ function parseBlogResponse(text) {
     const m = text.match(re);
     return m ? m[1].trim() : '';
   };
-  const hashtagsRaw = extract('HASHTAGS');
-  const hashtags = hashtagsRaw
-    .split(/\s+/)
-    .filter((t) => t.startsWith('#') && t.length > 1);
   return {
     title: extract('TITLE'),
     body: extract('BODY'),
-    hashtags,
   };
 }
 

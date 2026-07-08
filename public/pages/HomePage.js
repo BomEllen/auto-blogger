@@ -334,10 +334,6 @@ export function getHTML() {
             <div class="result-label-row"><span class="result-label">본문</span><span class="result-hint">사진은 미리보기로 표시 · 복사하면 [사진N] 위치 마커가 포함돼요</span></div>
             <div class="result-body-box" id="bodyOutput" contenteditable="true" spellcheck="false"></div>
           </div>
-          <div class="result-section">
-            <div class="result-label-row"><span class="result-label">해시태그</span><span class="result-hint">각 태그를 클릭하면 복사돼요</span></div>
-            <div class="result-tags-box" id="tagsOutput"></div>
-          </div>
         </section>
 
       </div><!-- /main-steps -->
@@ -974,17 +970,6 @@ export function mount() {
     document.getElementById('titleOutput').textContent = r.title || '';
     rawBodyText = stripMarkdown(r.body || '');
     document.getElementById('bodyOutput').innerHTML = buildBodyHtml(rawBodyText);
-    const tagsBox = document.getElementById('tagsOutput');
-    tagsBox.innerHTML = '';
-    const tags = Array.isArray(r.hashtags) ? r.hashtags : (r.hashtags || '').split(/\s+/).filter(t => t.startsWith('#'));
-    tags.forEach((tag) => {
-      const chip = document.createElement('button');
-      chip.className = 'tag-chip';
-      chip.textContent = tag;
-      chip.title = '클릭하면 복사';
-      chip.addEventListener('click', () => copyText(tag.replace(/^#/, ''), `${tag} 태그가`));
-      tagsBox.appendChild(chip);
-    });
     resultCard.classList.remove('hidden');
     resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
