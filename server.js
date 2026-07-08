@@ -509,7 +509,12 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
 
     // 네이버 블로그 제목 검색 (사진 분석과 병렬 실행)
     const naverQuery = [info.name, categoryName].filter(Boolean).join(' ');
-    const naverTitlesPromise = fetchNaverBlogTitles(naverQuery);
+    const regionKeyword = (info.location || '').split(/\s+/).slice(0, 2).join(' ');
+    const naverHashtagQuery = [regionKeyword, categoryName].filter(Boolean).join(' ');
+    const [naverTitlesPromise, naverHashtagPromise] = [
+      fetchNaverBlogTitles(naverQuery),
+      fetchNaverBlogTitles(naverHashtagQuery),
+    ];
 
     // 사진 설명 — 병렬 처리
     const allPhotoTasks = [];
@@ -620,9 +625,12 @@ ${STYLE_SAMPLES}
 위 샘플의 문체와 말투를 그대로 유지하면서, 아래 정보로 블로그 글을 작성하세요.`
       : '';
 
-    const naverTitles = await naverTitlesPromise;
+    const [naverTitles, naverHashtagTitles] = await Promise.all([naverTitlesPromise, naverHashtagPromise]);
     const naverBlock = naverTitles.length > 0
       ? `[네이버 상위 노출 제목 샘플 — [TITLE] 작성 시 이 제목들의 키워드 패턴을 분석해 반영하세요]\n${naverTitles.slice(0, 15).join('\n')}\n`
+      : '';
+    const naverHashtagBlock = naverHashtagTitles.length > 0
+      ? `[네이버 해시태그 키워드 참고 — [HASHTAGS] 작성 시 아래 제목들에서 자주 등장하는 키워드를 #해시태그 형태로 적극 활용하세요. 검색량 있는 실제 키워드 위주로 선정하세요]\n${naverHashtagTitles.slice(0, 20).join('\n')}\n`
       : '';
 
     const prompt = `${samplesSection}
@@ -630,7 +638,7 @@ ${STYLE_SAMPLES}
 ${fieldInfo}
 
 별점: ${ratingNum}점 / 5점
-${memoBlock}${affiliateLinkBlock}${sectionListBlock}${naverBlock}
+${memoBlock}${affiliateLinkBlock}${sectionListBlock}${naverBlock}${naverHashtagBlock}
 [사진 분석 결과 — 총 ${photos.length}장, 목차별 분류 / 각 목차의 사진을 해당 섹션 본문에 순서대로 배치]
 ★★★ 사진 본문 작성 절대 규칙 ★★★
 - 각 [사진N] 아래 본문은 반드시 아래 해당 사진의 분석 결과에 적힌 내용만을 바탕으로 작성하세요.
