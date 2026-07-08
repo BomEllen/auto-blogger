@@ -315,6 +315,54 @@ ${body.substring(0, 3000)}
   }
 });
 
+// ── 해시태그 생성 ──
+app.post('/api/generate-hashtags', async (req, res) => {
+  const apiKey = req.headers['x-api-key'];
+  if (!apiKey) return res.status(400).json({ error: 'API 키가 필요합니다.' });
+  const { body, naverQuery } = req.body;
+  if (!body?.trim()) return res.status(400).json({ error: '본문 내용이 없습니다.' });
+
+  try {
+    const regionKeyword = (naverQuery || '').split(/\s+/).slice(0, 2).join(' ');
+    const [naverTitles, naverHashtagTitles] = await Promise.all([
+      fetchNaverBlogTitles(naverQuery),
+      regionKeyword ? fetchNaverBlogTitles(regionKeyword) : Promise.resolve([]),
+    ]);
+    const naverBlock = naverTitles.length > 0
+      ? `\n[네이버 상위 노출 제목 샘플 — 자주 등장하는 키워드를 해시태그에 반영하세요]\n${naverTitles.slice(0, 15).join('\n')}\n`
+      : '';
+    const naverHashtagBlock = naverHashtagTitles.length > 0
+      ? `\n[지역+카테고리 관련 네이버 블로그 제목 — 해당 지역에서 실제로 쓰이는 키워드를 해시태그에 반영하세요]\n${naverHashtagTitles.slice(0, 20).join('\n')}\n`
+      : '';
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+    const prompt = `아래 블로그 본문을 읽고 네이버 블로그에 최적화된 해시태그 20개를 생성하세요.
+${naverBlock}${naverHashtagBlock}
+[해시태그 작성 규칙]
+1. 정확히 20개를 생성한다.
+2. 각 해시태그는 #단어 형식으로, 공백으로 구분한다. (예: #성수카페 #데이트코스 #내돈내산)
+3. 네이버에서 실제로 검색되는 키워드를 우선으로 선정한다.
+4. 지역명+카테고리, 특징 키워드, 감성 키워드를 골고루 섞는다.
+5. 본문 내용과 관련 없는 키워드는 사용하지 않는다.
+
+[본문]
+${body.substring(0, 3000)}
+
+해시태그 20개만 출력하세요. #단어 형식으로 공백으로 구분해서. 다른 설명 없이.`;
+    const result = await withFallback(
+      () => withRetry(() => model.generateContent(prompt)),
+      () => {
+        const fb = genAI.getGenerativeModel({ model: FALLBACK_MODEL });
+        return withRetry(() => fb.generateContent(prompt), 3, 2000);
+      }
+    );
+    res.json({ hashtags: result.response.text().trim() });
+  } catch (err) {
+    res.status(500).json({ error: friendlyGeminiError(err) });
+  }
+});
+
 // ── 정보성 블로그 생성 ──
 let INFO_BLOG_GUIDE = '';
 try {
