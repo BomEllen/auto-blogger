@@ -520,7 +520,7 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
     const gptClient = openaiKey ? new OpenAI({ apiKey: openaiKey }) : null;
 
     let completed = 0;
-    const photoDescriptions = await withConcurrency(allPhotoTasks, 6, async ({ photo, group, index }) => {
+    const photoDescriptions = await withConcurrency(allPhotoTasks, 2, async ({ photo, group, index }) => {
       console.log(`[photo ${index}/${allPhotoTasks.length}] 분석 시작 — 목차: ${group.name} / 파일크기: ${Math.round(photo.size/1024)}KB`);
       try {
         let desc;
