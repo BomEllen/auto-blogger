@@ -497,7 +497,6 @@ app.post('/api/generate-info-blog', upload.array('refImages', 10), async (req, r
   const refImages = req.files || [];
 
   if (!mainKeyword?.trim()) return res.status(400).json({ error: '핵심 키워드를 입력해주세요.' });
-  if (!actualInfo?.trim()) return res.status(400).json({ error: '실제 정보를 입력해주세요.' });
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
@@ -561,7 +560,7 @@ ${searchTopics.trim()}
 - 핵심 키워드: ${mainKeyword.trim()}
 - 보조 키워드: ${subKeywords?.trim() || '없음'}
 - 타겟 독자: ${targetReader?.trim() || '일반 독자'}
-- 실제 정보 (경험/사진 내용): ${actualInfo.trim()}
+- 실제 정보 (경험/사진 내용): ${actualInfo?.trim() || '없음'}
 - 삽입할 제휴 링크: ${affiliateLink?.trim() || '없음'}
 ${refSection}${searchedInfoSection}`;
 

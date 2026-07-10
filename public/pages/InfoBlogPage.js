@@ -59,7 +59,7 @@ export function getHTML() {
         </div>
 
         <div class="ib-field">
-          <label class="ib-label">실제 정보 <span class="req">*</span></label>
+          <label class="ib-label">실제 정보</label>
           <p class="ib-hint">직접 경험한 내용이나 사진에서 뽑은 정보를 자유롭게 적어주세요</p>
           <textarea id="ibActualInfo" class="ib-textarea" rows="8"
             placeholder="예) 첫날 비바람 강했고 둘째날부터 흐림·맑음 반복&#10;낮엔 덥고 습한데 실내는 냉방 강해서 얇은 겉옷 필요&#10;평균 기온 24도 안팎, 우산·방수신발 챙김&#10;비 오는 날엔 우메다 지하상가, 가이유칸 등 실내 위주로 다님"></textarea>
@@ -235,13 +235,6 @@ export function mount() {
       ibMainKeyword.focus();
       return;
     }
-    if (!actualInfo) {
-      ibError.textContent = '실제 정보를 입력해주세요.';
-      ibError.classList.remove('hidden');
-      ibActualInfo.focus();
-      return;
-    }
-
     ibError.classList.add('hidden');
     ibResultCard.classList.add('hidden');
     ibLoading.classList.remove('hidden');
