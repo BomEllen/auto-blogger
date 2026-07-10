@@ -571,17 +571,39 @@ ${refSection}${searchedInfoSection}`;
         return withRetry(() => withTimeout(() => fb.generateContent(prompt), 50000), 3, 2000);
       }
     );
-    const text = result.response.text().trim();
-
-    const extract = (tag) => {
-      const m = text.match(new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`));
+    const extractFrom = (src, tag) => {
+      const m = src.match(new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`));
       return m ? m[1].trim() : '';
     };
 
-    const linkSuggestion = extract('LINK_SUGGESTION');
+    let text = result.response.text().trim();
+    let title = extractFrom(text, 'TITLE');
+    let body = extractFrom(text, 'BODY');
+    let linkSuggestion = extractFrom(text, 'LINK_SUGGESTION');
+
+    if (!body) {
+      console.warn('[info-blog] [BODY] 태그 누락, 재시도...');
+      const retryPrompt = `[출력 형식 오류]\n이전 응답에서 [BODY]...[/BODY] 태그가 누락됐습니다.\n반드시 아래 형식을 지켜 전체 글을 다시 출력하세요.\n[TITLE]제목[/TITLE]\n[BODY]본문 전체 + 마지막 줄 해시태그 20개[/BODY]\n\n---\n\n${prompt}`;
+      const retryResult = await withFallback(
+        () => withRetry(() => withTimeout(() => model.generateContent(retryPrompt), 60000)),
+        () => {
+          const fb = genAI.getGenerativeModel({ model: FALLBACK_MODEL, systemInstruction: INFO_BLOG_GUIDE });
+          return withRetry(() => withTimeout(() => fb.generateContent(retryPrompt), 60000), 2, 2000);
+        }
+      );
+      const retryText = retryResult.response.text().trim();
+      title = extractFrom(retryText, 'TITLE') || title;
+      body = extractFrom(retryText, 'BODY');
+      linkSuggestion = extractFrom(retryText, 'LINK_SUGGESTION') || linkSuggestion;
+    }
+
+    if (!body) {
+      return res.status(500).json({ error: '글 생성에 실패했어요. 다시 시도해주세요.' });
+    }
+
     res.json({
-      title: extract('TITLE'),
-      body: extract('BODY'),
+      title,
+      body,
       ...(linkSuggestion && { linkSuggestion }),
     });
   } catch (err) {
