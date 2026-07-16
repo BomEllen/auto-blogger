@@ -99,6 +99,15 @@ function generateStars(rating) {
   return '★'.repeat(full) + (half ? '⭐' : '') + '☆'.repeat(empty);
 }
 
+function sanitizeFormattingHtml(text) {
+  return text.replace(/<([^>]+)>/g, (match) => {
+    const inner = match.slice(1, -1).trim();
+    if (/^\/?(b|u)$/i.test(inner)) return match;
+    if (/^b\s/i.test(inner)) return match;
+    return '';
+  });
+}
+
 function parseBlogResponse(text) {
   const extract = (tag) => {
     const re = new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`);
@@ -601,6 +610,8 @@ ${refSection}${searchedInfoSection}`;
       return res.status(500).json({ error: '글 생성에 실패했어요. 다시 시도해주세요.' });
     }
 
+    body = sanitizeFormattingHtml(body);
+
     res.json({
       title,
       body,
@@ -863,6 +874,7 @@ ${photoOrderNote}
       parsed = parseBlogResponse(retryResult.response.text());
     }
 
+    if (parsed.body) parsed.body = sanitizeFormattingHtml(parsed.body);
     send({ type: 'complete', result: parsed });
     res.end();
   } catch (err) {

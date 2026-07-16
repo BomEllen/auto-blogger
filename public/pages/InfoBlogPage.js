@@ -1,4 +1,4 @@
-import { copyText } from '../utils.js';
+import { copyText, copyHtml } from '../utils.js';
 
 export function getHTML() {
   return `
@@ -116,6 +116,7 @@ export function getHTML() {
           <div class="result-actions">
             <button class="btn-copy" id="ibCopyTitle">제목 복사</button>
             <button class="btn-copy" id="ibCopyBody">본문 복사</button>
+            <button class="btn-copy btn-copy-rich" id="ibCopyRich">서식 포함 복사</button>
             <button class="btn-copy btn-copy-all" id="ibCopyAll">전체 복사</button>
           </div>
         </div>
@@ -260,7 +261,7 @@ export function mount() {
       if (!res.ok) throw new Error(data.error || '글 생성에 실패했어요.');
 
       ibTitleOutput.textContent = data.title;
-      ibBodyOutput.textContent = data.body;
+      ibBodyOutput.innerHTML = data.body.replace(/\n/g, '<br>');
 
       if (data.linkSuggestion) {
         ibLinkSuggestionOutput.textContent = data.linkSuggestion;
@@ -279,14 +280,27 @@ export function mount() {
     }
   });
 
+  function getBodyPlainText() {
+    return ibBodyOutput.innerHTML
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<[^>]+>/g, '');
+  }
+
+  function getBodyHtml() {
+    return ibBodyOutput.innerHTML;
+  }
+
   document.getElementById('ibCopyTitle').addEventListener('click', () => {
     copyText(ibTitleOutput.textContent, '제목');
   });
   document.getElementById('ibCopyBody').addEventListener('click', () => {
-    copyText(ibBodyOutput.textContent, '본문');
+    copyText(getBodyPlainText(), '본문');
+  });
+  document.getElementById('ibCopyRich').addEventListener('click', () => {
+    copyHtml(getBodyHtml(), getBodyPlainText(), '서식 포함 본문');
   });
   document.getElementById('ibCopyAll').addEventListener('click', () => {
-    const all = `${ibTitleOutput.textContent}\n\n${ibBodyOutput.textContent}`;
+    const all = `${ibTitleOutput.textContent}\n\n${getBodyPlainText()}`;
     copyText(all, '전체');
   });
 

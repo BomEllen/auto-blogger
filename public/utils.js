@@ -1,5 +1,13 @@
 let toastTimer;
 
+function showToast(label) {
+  const toast = document.getElementById('copyToast');
+  toast.textContent = `${label} 복사됐어요!`;
+  toast.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.add('hidden'), 2500);
+}
+
 export async function copyText(text, label) {
   try { await navigator.clipboard.writeText(text); }
   catch {
@@ -7,11 +15,21 @@ export async function copyText(text, label) {
     Object.assign(ta.style, { position: 'fixed', opacity: '0' });
     document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
   }
-  const toast = document.getElementById('copyToast');
-  toast.textContent = `${label} 복사됐어요!`;
-  toast.classList.remove('hidden');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.add('hidden'), 2500);
+  showToast(label);
+}
+
+export async function copyHtml(html, plainText, label) {
+  try {
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        'text/html': new Blob([`<html><body>${html}</body></html>`], { type: 'text/html' }),
+        'text/plain': new Blob([plainText], { type: 'text/plain' }),
+      }),
+    ]);
+    showToast(label);
+  } catch {
+    await copyText(plainText, label);
+  }
 }
 
 export function showAlert(message) {

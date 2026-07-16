@@ -1,4 +1,4 @@
-import { showAlert, showConfirm, copyText } from '../utils.js';
+import { showAlert, showConfirm, copyText, copyHtml } from '../utils.js';
 
 export function getHTML() {
   return `
@@ -323,6 +323,7 @@ export function getHTML() {
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.688a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" /></svg>
                 본문 복사
               </button>
+              <button class="btn-copy btn-copy-rich" id="copyRich">서식 포함 복사</button>
               <button class="btn-copy btn-copy-all" id="copyAll">전체 복사</button>
             </div>
           </div>
@@ -353,6 +354,7 @@ export function mount() {
   let sections = [];
   let connectedApiKey = '';
   let rawBodyText = '';
+  let formattedBodyHtml = '';
   let dragSrcIndex = null;
   let dragSrcSection = null;
   let lightboxObjectUrl = null;
@@ -865,11 +867,16 @@ export function mount() {
       .replace(/`(.+?)`/g, '$1').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
   }
 
-  function buildBodyHtml(rawBody) {
-    const parts = rawBody.split(/(\[사진\d+\])/);
+  function stripHtmlTags(html) {
+    return html.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
+  }
+
+  function buildBodyHtml(body) {
+    const parts = body.split(/(\[사진\d+\]|<\/?\w[^>]*>)/);
     return parts.map(part => {
       if (/^\[사진\d+\]$/.test(part)) return `<span class="photo-marker">${part}</span>`;
-      return part.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+      if (/^<\/?\w/.test(part)) return part;
+      return part.replace(/&/g, '&amp;').replace(/\n/g, '<br>');
     }).join('');
   }
 
@@ -968,8 +975,9 @@ export function mount() {
 
   function showResult(r, resultCard) {
     document.getElementById('titleOutput').textContent = r.title || '';
-    rawBodyText = stripMarkdown(r.body || '');
-    document.getElementById('bodyOutput').innerHTML = buildBodyHtml(rawBodyText);
+    formattedBodyHtml = stripMarkdown(r.body || '');
+    rawBodyText = stripHtmlTags(formattedBodyHtml);
+    document.getElementById('bodyOutput').innerHTML = buildBodyHtml(formattedBodyHtml);
     resultCard.classList.remove('hidden');
     resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -979,6 +987,10 @@ export function mount() {
     copyText(document.getElementById('titleOutput').textContent, '제목이')
   );
   document.getElementById('copyBody').addEventListener('click', () => copyText(rawBodyText, '본문이'));
+  document.getElementById('copyRich').addEventListener('click', () => {
+    const html = buildBodyHtml(formattedBodyHtml);
+    copyHtml(html, rawBodyText, '서식 포함 본문이');
+  });
   document.getElementById('copyAll').addEventListener('click', () => {
     const title = document.getElementById('titleOutput').textContent;
     copyText(`${title}\n\n${rawBodyText}`, '전체 글이');
