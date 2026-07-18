@@ -502,7 +502,7 @@ app.post('/api/generate-info-blog', upload.array('refImages', 10), async (req, r
   const apiKey = req.headers['x-api-key'];
   if (!apiKey) return res.status(400).json({ error: 'API 키가 필요합니다.' });
 
-  const { mainKeyword, subKeywords, targetReader, searchTopics, actualInfo, affiliateLink, refLinks } = req.body;
+  const { mainKeyword, subKeywords, targetReader, searchTopics, actualInfo, emphasizeContent, affiliateLink, refLinks } = req.body;
   const refImages = req.files || [];
 
   if (!mainKeyword?.trim()) return res.status(400).json({ error: '핵심 키워드를 입력해주세요.' });
@@ -565,13 +565,17 @@ ${searchTopics.trim()}
 
     const model = genAI.getGenerativeModel({ model: GEMINI_MODEL, systemInstruction: INFO_BLOG_GUIDE });
 
+    const emphasizeBlock = emphasizeContent?.trim()
+      ? `\n[특별 강조 요청 — 아래 내용은 글에서 다른 부분보다 강조 서식(배경색·글씨색·볼드)을 집중적으로 적용해 부각시킬 것]\n${emphasizeContent.trim()}\n`
+      : '';
+
     const prompt = `[입력값]
 - 핵심 키워드: ${mainKeyword.trim()}
 - 보조 키워드: ${subKeywords?.trim() || '없음'}
 - 타겟 독자: ${targetReader?.trim() || '일반 독자'}
 - 실제 정보 (경험/사진 내용): ${actualInfo?.trim() || '없음'}
 - 삽입할 제휴 링크: ${affiliateLink?.trim() || '없음'}
-${refSection}${searchedInfoSection}`;
+${emphasizeBlock}${refSection}${searchedInfoSection}`;
 
     const result = await withFallback(
       () => withRetry(() => withTimeout(() => model.generateContent(prompt), 50000)),

@@ -67,6 +67,13 @@ export function getHTML() {
         </div>
 
         <div class="ib-field">
+          <label class="ib-label">특별히 강조하고 싶은 내용</label>
+          <p class="ib-hint">글에서 다른 내용보다 더 부각됐으면 하는 포인트를 적어주세요. 강조 서식(볼드·색상)을 집중 적용해드려요</p>
+          <textarea id="ibEmphasizeContent" class="ib-textarea" rows="3"
+            placeholder="예) 예약은 최소 2주 전에 해야 한다는 점&#10;현장 구매보다 온라인이 훨씬 저렴하다는 것&#10;오전 일찍 가야 줄이 짧다"></textarea>
+        </div>
+
+        <div class="ib-field">
           <label class="ib-label">삽입할 제휴 링크</label>
           <p class="ib-hint">글 안에 자연스럽게 넣을 링크 (없으면 비워두세요)</p>
           <input type="text" id="ibAffiliateLink" class="ib-input" placeholder="예) https://..." />
@@ -161,6 +168,7 @@ export function mount() {
   const ibSubKeywords = document.getElementById('ibSubKeywords');
   const ibTargetReader = document.getElementById('ibTargetReader');
   const ibActualInfo = document.getElementById('ibActualInfo');
+  const ibEmphasizeContent = document.getElementById('ibEmphasizeContent');
   const ibAffiliateLink = document.getElementById('ibAffiliateLink');
   const ibSearchTopics = document.getElementById('ibSearchTopics');
   const ibRefLinks = document.getElementById('ibRefLinks');
@@ -248,6 +256,7 @@ export function mount() {
       fd.append('targetReader', ibTargetReader.value);
       fd.append('searchTopics', ibSearchTopics.value);
       fd.append('actualInfo', actualInfo);
+      fd.append('emphasizeContent', ibEmphasizeContent.value);
       fd.append('affiliateLink', ibAffiliateLink.value);
       fd.append('refLinks', ibRefLinks.value);
       ibRefFiles.forEach(f => fd.append('refImages', f));
