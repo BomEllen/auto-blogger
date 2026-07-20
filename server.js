@@ -722,9 +722,13 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
       }
     }
 
+    const photoGenreLabel = category === 'etc' && info.name
+      ? `기타(${info.name}) 리뷰`
+      : `${categoryName} 리뷰`;
+
     const photoPrompt = (sectionName) => `당신은 카페/맛집/숙소 블로그 리뷰를 위한 사진 분석 전문가입니다.
 아래 사진을 보이는 것을 빠짐없이 꼼꼼하게 분석하세요.
-장르: ${categoryName} 리뷰 / 목차: ${sectionName}
+장르: ${photoGenreLabel} / 목차: ${sectionName}
 
 [분석 원칙]
 - 사진에 실제로 보이는 것만 작성하세요. 보이지 않는 내용은 절대 추측하거나 추가하지 마세요.
