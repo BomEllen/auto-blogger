@@ -272,6 +272,12 @@ export function getHTML() {
           <h2 class="step-title">꼭 넣고 싶은 내용</h2>
           <p class="step-desc">블로그 글에 반드시 포함됐으면 하는 내용을 자유롭게 적어주세요 <span class="tag-optional">선택</span></p>
           <textarea id="memoInput" class="memo-textarea" placeholder="예) 직원분이 너무 친절하셨어요 / 창가 자리 꼭 앉아보세요 / 웨이팅 있었는데 30분 정도 기다렸어요..." rows="5"></textarea>
+
+          <div style="margin-top:20px;">
+            <p class="field-label">AI 작성 지침 <span class="tag-optional">선택</span></p>
+            <p class="field-hint">글 스타일·구조·표현 방식 등 AI가 반드시 따랐으면 하는 규칙을 적어주세요</p>
+            <textarea id="customDirectivesInput" class="memo-textarea" placeholder="예) 각 섹션을 최소 200자 이상 써줘&#10;단점을 솔직하게 2가지 이상 언급해줘&#10;음료 가격을 꼭 언급해줘" rows="3"></textarea>
+          </div>
         </section>
 
         <!-- Step 3 -->
@@ -906,10 +912,12 @@ export function mount() {
     progressDetail.textContent = '';
 
     const memo = document.getElementById('memoInput').value.trim();
+    const customDirectives = document.getElementById('customDirectivesInput').value.trim();
     const fd = new FormData();
     fd.append('category', selectedCategory);
     fd.append('rating', selectedRating);
     if (memo) fd.append('memo', memo);
+    if (customDirectives) fd.append('customDirectives', customDirectives);
     Object.entries(info).forEach(([k, v]) => fd.append(k, v));
     const validSections = sections.filter(s => s.photos.length > 0);
     fd.append('sectionNames', JSON.stringify(validSections.map(s => s.name || '기타')));

@@ -502,7 +502,7 @@ app.post('/api/generate-info-blog', upload.array('refImages', 10), async (req, r
   const apiKey = req.headers['x-api-key'];
   if (!apiKey) return res.status(400).json({ error: 'API 키가 필요합니다.' });
 
-  const { mainKeyword, subKeywords, targetReader, searchTopics, actualInfo, emphasizeContent, affiliateLink, refLinks } = req.body;
+  const { mainKeyword, subKeywords, targetReader, searchTopics, actualInfo, emphasizeContent, customDirectives, affiliateLink, refLinks } = req.body;
   const refImages = req.files || [];
 
   if (!mainKeyword?.trim()) return res.status(400).json({ error: '핵심 키워드를 입력해주세요.' });
@@ -569,13 +569,17 @@ ${searchTopics.trim()}
       ? `\n[특별 강조 요청 — 아래 내용은 글에서 다른 부분보다 강조 서식(배경색·글씨색·볼드)을 집중적으로 적용해 부각시킬 것]\n${emphasizeContent.trim()}\n`
       : '';
 
+    const directivesBlock = customDirectives?.trim()
+      ? `\n[사용자 지정 AI 작성 지침 — 아래 규칙을 반드시 따를 것]\n${customDirectives.trim()}\n`
+      : '';
+
     const prompt = `[입력값]
 - 핵심 키워드: ${mainKeyword.trim()}
 - 보조 키워드: ${subKeywords?.trim() || '없음'}
 - 타겟 독자: ${targetReader?.trim() || '일반 독자'}
 - 실제 정보 (경험/사진 내용): ${actualInfo?.trim() || '없음'}
 - 삽입할 제휴 링크: ${affiliateLink?.trim() || '없음'}
-${emphasizeBlock}${refSection}${searchedInfoSection}`;
+${emphasizeBlock}${directivesBlock}${refSection}${searchedInfoSection}`;
 
     const result = await withFallback(
       () => withRetry(() => withTimeout(() => model.generateContent(prompt), 50000)),
@@ -680,7 +684,7 @@ app.post('/api/generate', upload.array('photos'), async (req, res) => {
   const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
   try {
-    const { category, rating, memo, sectionNames: rawSectionNames, sectionCounts: rawSectionCounts, ...info } = req.body;
+    const { category, rating, memo, customDirectives: reviewCustomDirectives, sectionNames: rawSectionNames, sectionCounts: rawSectionCounts, ...info } = req.body;
     const openaiKey = req.headers['x-openai-key'] || '';
     const photos = req.files || [];
     const categoryName = getCategoryName(category);
@@ -833,12 +837,16 @@ ${STYLE_SAMPLES}
       ? `[네이버 해시태그 키워드 참고 — [HASHTAGS] 작성 시 아래 제목들에서 자주 등장하는 키워드를 #해시태그 형태로 적극 활용하세요. 검색량 있는 실제 키워드 위주로 선정하세요]\n${naverHashtagTitles.slice(0, 20).join('\n')}\n`
       : '';
 
+    const reviewDirectivesBlock = reviewCustomDirectives?.trim()
+      ? `\n[사용자 지정 AI 작성 지침 — 아래 규칙을 반드시 따를 것]\n${reviewCustomDirectives.trim()}\n`
+      : '';
+
     const prompt = `${samplesSection}
 
 ${fieldInfo}
 
 별점: ${ratingNum}점 / 5점
-${memoBlock}${affiliateLinkBlock}${sectionListBlock}${naverBlock}${naverHashtagBlock}
+${memoBlock}${affiliateLinkBlock}${reviewDirectivesBlock}${sectionListBlock}${naverBlock}${naverHashtagBlock}
 [사진 분석 결과 — 총 ${photos.length}장, 목차별 분류 / 각 목차의 사진을 해당 섹션 본문에 순서대로 배치]
 ★★★ 사진 본문 작성 절대 규칙 ★★★
 - 각 [사진N] 아래 본문은 반드시 아래 해당 사진의 분석 결과에 적힌 내용만을 바탕으로 작성하세요.

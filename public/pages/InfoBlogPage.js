@@ -74,6 +74,13 @@ export function getHTML() {
         </div>
 
         <div class="ib-field">
+          <label class="ib-label">AI 작성 지침</label>
+          <p class="ib-hint">글 스타일·구조·표현 방식 등 AI가 반드시 따랐으면 하는 규칙을 적어주세요 (없으면 비워두세요)</p>
+          <textarea id="ibCustomDirectives" class="ib-textarea" rows="3"
+            placeholder="예) 문장을 짧게 끊어서 써줘&#10;숫자나 통계를 최대한 활용해줘&#10;전문적인 어조로 작성해줘"></textarea>
+        </div>
+
+        <div class="ib-field">
           <label class="ib-label">삽입할 제휴 링크</label>
           <p class="ib-hint">글 안에 자연스럽게 넣을 링크 (없으면 비워두세요)</p>
           <input type="text" id="ibAffiliateLink" class="ib-input" placeholder="예) https://..." />
@@ -169,6 +176,7 @@ export function mount() {
   const ibTargetReader = document.getElementById('ibTargetReader');
   const ibActualInfo = document.getElementById('ibActualInfo');
   const ibEmphasizeContent = document.getElementById('ibEmphasizeContent');
+  const ibCustomDirectives = document.getElementById('ibCustomDirectives');
   const ibAffiliateLink = document.getElementById('ibAffiliateLink');
   const ibSearchTopics = document.getElementById('ibSearchTopics');
   const ibRefLinks = document.getElementById('ibRefLinks');
@@ -257,6 +265,7 @@ export function mount() {
       fd.append('searchTopics', ibSearchTopics.value);
       fd.append('actualInfo', actualInfo);
       fd.append('emphasizeContent', ibEmphasizeContent.value);
+      fd.append('customDirectives', ibCustomDirectives.value);
       fd.append('affiliateLink', ibAffiliateLink.value);
       fd.append('refLinks', ibRefLinks.value);
       ibRefFiles.forEach(f => fd.append('refImages', f));
