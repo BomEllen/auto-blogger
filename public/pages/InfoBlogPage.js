@@ -279,6 +279,7 @@ export function getHTML() {
           <div class="result-label-row">
             <span class="result-label">제목</span>
           </div>
+          <div id="ibTitleCards" class="ib-title-cards hidden"></div>
           <div class="result-title-box" id="ibTitleOutput" contenteditable="true" spellcheck="false"></div>
         </div>
 
@@ -435,6 +436,7 @@ export function mount() {
   const ibLoading = document.getElementById('ibLoading');
   const ibError = document.getElementById('ibError');
   const ibResultCard = document.getElementById('ibResultCard');
+  const ibTitleCards = document.getElementById('ibTitleCards');
   const ibTitleOutput = document.getElementById('ibTitleOutput');
   const ibBodyOutput = document.getElementById('ibBodyOutput');
   const ibLinkSuggestionSection = document.getElementById('ibLinkSuggestionSection');
@@ -528,7 +530,28 @@ export function mount() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '글 생성에 실패했어요.');
 
-      ibTitleOutput.textContent = data.title;
+      if (data.titles && data.titles.length > 1) {
+        ibTitleCards.innerHTML = data.titles.map((t, i) => `
+          <label class="ib-title-card${i === 0 ? ' selected' : ''}">
+            <input type="radio" name="ibTitleChoice" value="${i}" ${i === 0 ? 'checked' : ''} />
+            <span class="ib-title-card-num">${i + 1}</span>
+            <span class="ib-title-card-text">${t}</span>
+          </label>`).join('');
+        ibTitleCards.classList.remove('hidden');
+        ibTitleOutput.textContent = data.titles[0];
+        ibTitleCards.querySelectorAll('input[name="ibTitleChoice"]').forEach(radio => {
+          radio.addEventListener('change', (e) => {
+            const idx = parseInt(e.target.value, 10);
+            ibTitleOutput.textContent = data.titles[idx];
+            ibTitleCards.querySelectorAll('.ib-title-card').forEach((c, ci) => {
+              c.classList.toggle('selected', ci === idx);
+            });
+          });
+        });
+      } else {
+        ibTitleCards.classList.add('hidden');
+        ibTitleOutput.textContent = data.title;
+      }
       ibBodyOutput.innerHTML = data.body.replace(/\n/g, '<br>');
 
       if (data.linkSuggestion) {

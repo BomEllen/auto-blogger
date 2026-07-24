@@ -165,6 +165,13 @@ function validateInfoBlogOutput(body, affiliateLinks, contentType, verifiedPrice
   return violations;
 }
 
+function parseTitles(titleBlock) {
+  if (!titleBlock) return [];
+  const numbered = [...titleBlock.matchAll(/^\d+\.\s*(.+)$/gm)].map(m => m[1].trim()).filter(Boolean);
+  if (numbered.length > 0) return numbered;
+  return [titleBlock.trim()].filter(Boolean);
+}
+
 function parseBlogResponse(text) {
   const extract = (tag) => {
     const re = new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`);
@@ -711,8 +718,10 @@ ${emphasizeBlock}${directivesBlock}${comparisonBlock}${verifiedPricesBlock}${aff
 
     body = sanitizeFormattingHtml(body);
 
+    const titles = parseTitles(title);
     res.json({
-      title,
+      title: titles[0] || title,
+      titles,
       body,
       ...(linkSuggestion && { linkSuggestion }),
     });
