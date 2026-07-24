@@ -334,6 +334,7 @@ export function mount() {
         <option value="C"${link.anchor === 'C' ? ' selected' : ''}>C위치 (마무리 전)</option>
       </select>
       <input type="text" class="ib-link-label ib-input-sm" placeholder="레이블 (예: 난바 도보 3분 호텔)" value="${link.label || ''}" />
+      <input type="text" class="ib-link-reason ib-input-sm" placeholder="한 줄 이유 (예: QR로 바로 탑승됨 / 무료 취소 가능 / 한국어 안내 명확)" value="${link.reason || ''}" />
       <button type="button" class="ib-link-del" title="삭제">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
       </button>
@@ -342,6 +343,7 @@ export function mount() {
     row.querySelector('.ib-link-url').addEventListener('input', (e) => { affiliateLinks[idx].url = e.target.value; });
     row.querySelector('.ib-link-anchor').addEventListener('change', (e) => { affiliateLinks[idx].anchor = e.target.value; });
     row.querySelector('.ib-link-label').addEventListener('input', (e) => { affiliateLinks[idx].label = e.target.value; });
+    row.querySelector('.ib-link-reason').addEventListener('input', (e) => { affiliateLinks[idx].reason = e.target.value; });
     row.querySelector('.ib-link-del').addEventListener('click', () => {
       affiliateLinks.splice(idx, 1);
       renderAffiliateLinkRows();

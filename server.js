@@ -595,7 +595,7 @@ ${searchTopics.trim()}
       : '';
 
     const affiliateBlock = affiliateLinks.length > 0
-      ? `\n[제휴 배치도 — 아래 링크를 지정된 위치에 삽입할 것. 앵커 텍스트는 열마다 다르게]\n${affiliateLinks.map(l => `사이트: ${l.site || '미입력'} | URL: ${l.url} | 배치: ${l.anchor || '표내부'} | 레이블: ${l.label || ''}`).join('\n')}\n`
+      ? `\n[제휴 배치도 — 아래 링크를 지정된 위치에 삽입할 것. 앵커 텍스트는 열마다 다르게]\n${affiliateLinks.map(l => `사이트: ${l.site || '미입력'} | URL: ${l.url} | 배치: ${l.anchor || '표내부'} | 레이블: ${l.label || ''} | 이유: ${l.reason || '없음'}`).join('\n')}\n각 링크의 '이유'가 있으면 그것을 근거로 "왜 내 링크에서 사야 하는지"를 쓴다. '이유'가 없으면 장단점 비교 방식으로 대체한다. 특가·할인·쿠폰·최저가는 입력값에 없으면 절대 지어내지 않는다.\n`
       : '\n- 삽입할 제휴 링크: 없음\n';
 
     const readerProfileBlock = readerProfile?.trim()
