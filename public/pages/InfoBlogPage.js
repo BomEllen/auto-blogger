@@ -74,6 +74,24 @@ export function getHTML() {
         </div>
 
         <div class="ib-field">
+          <label class="ib-label">글 유형</label>
+          <p class="ib-hint">글의 주된 목적을 선택하세요. 비교형·구매형·제품형은 비교표가 자동 포함돼요</p>
+          <div class="radio-group" id="ibContentTypeGroup">
+            <label class="radio-label"><input type="radio" name="ibContentType" value="정보형" checked /> 정보형</label>
+            <label class="radio-label"><input type="radio" name="ibContentType" value="비교형" /> 비교형</label>
+            <label class="radio-label"><input type="radio" name="ibContentType" value="구매형" /> 구매형</label>
+            <label class="radio-label"><input type="radio" name="ibContentType" value="제품형" /> 제품형</label>
+          </div>
+        </div>
+
+        <div class="ib-field">
+          <label class="ib-label">비교 구간 설계</label>
+          <p class="ib-hint">비교할 대상, 비교 기준, 결론 방향을 자유롭게 적어주세요 (비교형·구매형·제품형에서 활용)</p>
+          <textarea id="ibComparisonDesign" class="ib-textarea" rows="3"
+            placeholder="예) 아고다 vs 부킹닷컴 vs 호텔스컴바인&#10;비교 기준: 가격, 취소 정책, 포인트 적립&#10;결론 방향: 가격 중시면 아고다, 취소 자유로움 원하면 부킹닷컴"></textarea>
+        </div>
+
+        <div class="ib-field">
           <label class="ib-label">AI 작성 지침</label>
           <p class="ib-hint">글 스타일·구조·표현 방식 등 AI가 반드시 따랐으면 하는 규칙을 적어주세요 (없으면 비워두세요)</p>
           <textarea id="ibCustomDirectives" class="ib-textarea" rows="3"
@@ -82,8 +100,9 @@ export function getHTML() {
 
         <div class="ib-field">
           <label class="ib-label">삽입할 제휴 링크</label>
-          <p class="ib-hint">글 안에 자연스럽게 넣을 링크 (없으면 비워두세요)</p>
-          <input type="text" id="ibAffiliateLink" class="ib-input" placeholder="예) https://..." />
+          <p class="ib-hint">글 안에 삽입할 링크를 추가하세요. 여러 개 가능 (없으면 비워두세요)</p>
+          <div id="ibAffiliateLinksList"></div>
+          <button type="button" class="btn-ib-add-link" id="ibAddLinkBtn">+ 링크 추가</button>
         </div>
 
         <div class="ib-field">
@@ -177,7 +196,56 @@ export function mount() {
   const ibActualInfo = document.getElementById('ibActualInfo');
   const ibEmphasizeContent = document.getElementById('ibEmphasizeContent');
   const ibCustomDirectives = document.getElementById('ibCustomDirectives');
-  const ibAffiliateLink = document.getElementById('ibAffiliateLink');
+  const ibComparisonDesign = document.getElementById('ibComparisonDesign');
+  const ibAffiliateLinksList = document.getElementById('ibAffiliateLinksList');
+  const ibAddLinkBtn = document.getElementById('ibAddLinkBtn');
+
+  let affiliateLinks = [];
+
+  function getContentType() {
+    const checked = document.querySelector('input[name="ibContentType"]:checked');
+    return checked ? checked.value : '정보형';
+  }
+
+  function renderAffiliateLinkRow(link, idx) {
+    const row = document.createElement('div');
+    row.className = 'ib-link-row';
+    row.innerHTML = `
+      <input type="text" class="ib-link-site ib-input-sm" placeholder="사이트명 (예: 아고다)" value="${link.site || ''}" />
+      <input type="text" class="ib-link-url ib-input-sm" placeholder="URL" value="${link.url || ''}" />
+      <select class="ib-link-anchor ib-select-sm">
+        <option value="표내부"${link.anchor === '표내부' ? ' selected' : ''}>표 내부</option>
+        <option value="A"${link.anchor === 'A' ? ' selected' : ''}>A위치 (경험 교차 후)</option>
+        <option value="B"${link.anchor === 'B' ? ' selected' : ''}>B위치 (비교표 뒤)</option>
+        <option value="C"${link.anchor === 'C' ? ' selected' : ''}>C위치 (마무리 전)</option>
+      </select>
+      <input type="text" class="ib-link-label ib-input-sm" placeholder="레이블 (예: 난바 도보 3분 호텔)" value="${link.label || ''}" />
+      <button type="button" class="ib-link-del" title="삭제">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+      </button>
+    `;
+    row.querySelector('.ib-link-site').addEventListener('input', (e) => { affiliateLinks[idx].site = e.target.value; });
+    row.querySelector('.ib-link-url').addEventListener('input', (e) => { affiliateLinks[idx].url = e.target.value; });
+    row.querySelector('.ib-link-anchor').addEventListener('change', (e) => { affiliateLinks[idx].anchor = e.target.value; });
+    row.querySelector('.ib-link-label').addEventListener('input', (e) => { affiliateLinks[idx].label = e.target.value; });
+    row.querySelector('.ib-link-del').addEventListener('click', () => {
+      affiliateLinks.splice(idx, 1);
+      renderAffiliateLinkRows();
+    });
+    return row;
+  }
+
+  function renderAffiliateLinkRows() {
+    ibAffiliateLinksList.innerHTML = '';
+    affiliateLinks.forEach((link, idx) => {
+      ibAffiliateLinksList.appendChild(renderAffiliateLinkRow(link, idx));
+    });
+  }
+
+  ibAddLinkBtn.addEventListener('click', () => {
+    affiliateLinks.push({ site: '', url: '', anchor: '표내부', label: '' });
+    renderAffiliateLinkRows();
+  });
   const ibSearchTopics = document.getElementById('ibSearchTopics');
   const ibRefLinks = document.getElementById('ibRefLinks');
   const ibRefUploadZone = document.getElementById('ibRefUploadZone');
@@ -266,7 +334,9 @@ export function mount() {
       fd.append('actualInfo', actualInfo);
       fd.append('emphasizeContent', ibEmphasizeContent.value);
       fd.append('customDirectives', ibCustomDirectives.value);
-      fd.append('affiliateLink', ibAffiliateLink.value);
+      fd.append('contentType', getContentType());
+      fd.append('comparisonDesign', ibComparisonDesign.value);
+      fd.append('affiliateLinks', JSON.stringify(affiliateLinks.filter(l => l.url?.trim())));
       fd.append('refLinks', ibRefLinks.value);
       ibRefFiles.forEach(f => fd.append('refImages', f));
 

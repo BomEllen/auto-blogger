@@ -108,6 +108,22 @@ function sanitizeFormattingHtml(text) {
   });
 }
 
+function validateInfoBlogOutput(body, affiliateLinks, contentType) {
+  const violations = [];
+  const photoMarkers = (body.match(/\[사진 \d+/g) || []).length;
+  if (photoMarkers < 8) violations.push(`사진 마커 ${photoMarkers}개 — 최소 8개 필요`);
+  if (['비교형', '구매형', '제품형'].includes(contentType)) {
+    const tableMarkers = (body.match(/\[표 삽입/g) || []).length;
+    if (tableMarkers < 2) violations.push(`표 마커 ${tableMarkers}개 — ${contentType}에는 기본정보표+비교표 최소 2개 필요`);
+  }
+  if (affiliateLinks.length > 0 && !body.includes('제휴 링크가 포함')) {
+    violations.push('대가성 고지 문구 누락 — 본문 최하단에 추가 필요');
+  }
+  const forbidden = ['최저가 보장', '무조건 추천', '지금 안 사면 손해', '후회 없음'];
+  forbidden.forEach(f => { if (body.includes(f)) violations.push(`금지 표현 "${f}" 사용됨`); });
+  return violations;
+}
+
 function parseBlogResponse(text) {
   const extract = (tag) => {
     const re = new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`);
@@ -502,7 +518,8 @@ app.post('/api/generate-info-blog', upload.array('refImages', 10), async (req, r
   const apiKey = req.headers['x-api-key'];
   if (!apiKey) return res.status(400).json({ error: 'API 키가 필요합니다.' });
 
-  const { mainKeyword, subKeywords, targetReader, searchTopics, actualInfo, emphasizeContent, customDirectives, affiliateLink, refLinks } = req.body;
+  const { mainKeyword, subKeywords, targetReader, searchTopics, actualInfo, emphasizeContent, customDirectives, contentType, comparisonDesign, refLinks } = req.body;
+  const affiliateLinks = (() => { try { return JSON.parse(req.body.affiliateLinks || '[]'); } catch { return []; } })();
   const refImages = req.files || [];
 
   if (!mainKeyword?.trim()) return res.status(400).json({ error: '핵심 키워드를 입력해주세요.' });
@@ -573,13 +590,21 @@ ${searchTopics.trim()}
       ? `\n[사용자 지정 AI 작성 지침 — 아래 규칙을 반드시 따를 것]\n${customDirectives.trim()}\n`
       : '';
 
+    const comparisonBlock = comparisonDesign?.trim()
+      ? `\n[비교 구간 설계 — 아래 정보를 바탕으로 ⑤ 비교·선택 가이드 섹션을 구성할 것]\n${comparisonDesign.trim()}\n`
+      : '';
+
+    const affiliateBlock = affiliateLinks.length > 0
+      ? `\n[제휴 배치도 — 아래 링크를 지정된 위치에 삽입할 것. 앵커 텍스트는 열마다 다르게]\n${affiliateLinks.map(l => `사이트: ${l.site || '미입력'} | URL: ${l.url} | 배치: ${l.anchor || '표내부'} | 레이블: ${l.label || ''}`).join('\n')}\n`
+      : '\n- 삽입할 제휴 링크: 없음\n';
+
     const prompt = `[입력값]
 - 핵심 키워드: ${mainKeyword.trim()}
 - 보조 키워드: ${subKeywords?.trim() || '없음'}
 - 타겟 독자: ${targetReader?.trim() || '일반 독자'}
+- 글 유형: ${contentType?.trim() || '정보형'}
 - 실제 정보 (경험/사진 내용): ${actualInfo?.trim() || '없음'}
-- 삽입할 제휴 링크: ${affiliateLink?.trim() || '없음'}
-${emphasizeBlock}${directivesBlock}${refSection}${searchedInfoSection}`;
+${emphasizeBlock}${directivesBlock}${comparisonBlock}${affiliateBlock}${refSection}${searchedInfoSection}`;
 
     const result = await withFallback(
       () => withRetry(() => withTimeout(() => model.generateContent(prompt), 50000)),
@@ -616,6 +641,24 @@ ${emphasizeBlock}${directivesBlock}${refSection}${searchedInfoSection}`;
 
     if (!body) {
       return res.status(500).json({ error: '글 생성에 실패했어요. 다시 시도해주세요.' });
+    }
+
+    // 후처리 검증 (사진 마커 수, 비교표 여부, 대가성 고지, 금지 표현)
+    const infoViolations = validateInfoBlogOutput(body, affiliateLinks, contentType?.trim() || '정보형');
+    if (infoViolations.length > 0) {
+      console.warn('[info-blog] 검증 위반:', infoViolations);
+      const retryPrompt2 = `[규칙 위반 수정]\n다음 항목이 지켜지지 않았습니다:\n${infoViolations.map(v => `- ${v}`).join('\n')}\n\n위 항목만 고쳐서 전체 글을 다시 동일한 [TITLE][BODY] 형식으로 출력하세요.\n\n---\n\n${prompt}`;
+      const retryResult2 = await withFallback(
+        () => withRetry(() => withTimeout(() => model.generateContent(retryPrompt2), 60000)),
+        () => {
+          const fb = genAI.getGenerativeModel({ model: FALLBACK_MODEL, systemInstruction: INFO_BLOG_GUIDE });
+          return withRetry(() => withTimeout(() => fb.generateContent(retryPrompt2), 60000), 2, 2000);
+        }
+      );
+      const retryText2 = retryResult2.response.text().trim();
+      title = extractFrom(retryText2, 'TITLE') || title;
+      body = extractFrom(retryText2, 'BODY') || body;
+      linkSuggestion = extractFrom(retryText2, 'LINK_SUGGESTION') || linkSuggestion;
     }
 
     body = sanitizeFormattingHtml(body);
