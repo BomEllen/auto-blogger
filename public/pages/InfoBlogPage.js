@@ -1,5 +1,105 @@
 import { copyText, copyHtml } from '../utils.js';
 
+const FIELD_MAP = {
+  '핵심 키워드': 'mainKeyword',
+  '보조 키워드': 'subKeywords',
+  '독자 관통선': 'readerProfile',
+  '검색해서 넣을 정보 항목': 'searchItems',
+  '특별히 강조하고 싶은 내용': 'emphasize',
+  '글 유형': 'contentType',
+  '비교 구간 설계': 'comparison',
+  '제휴 링크': 'affiliateSites',
+  '참고 링크': 'refLinks',
+};
+
+function parseProjectOutput(text) {
+  const filled = {};
+  const missing = [];
+
+  const body = text.split(/\n-{3,}\s*\n/)[0];
+  const blocks = body.split(/\n(?=\[)/);
+
+  for (const block of blocks) {
+    const m = block.match(/^\[([^\]]+)\]\s*\n?([\s\S]*)/);
+    if (!m) continue;
+    const key = FIELD_MAP[m[1].trim()];
+    const value = m[2].trim();
+    if (key && value) filled[key] = value;
+  }
+
+  for (const [label, key] of Object.entries(FIELD_MAP)) {
+    if (!filled[key]) missing.push(label);
+  }
+
+  return { filled, missing };
+}
+
+function parseAffiliateSites(text) {
+  return text.split('\n')
+    .filter(l => l.trim().startsWith('-'))
+    .map(line => {
+      const m = line.match(/^-\s*(.+?)\s*\((.+?)\)\s*$/);
+      if (m) return { site: m[1].trim(), url: '', anchor: '표내부', label: m[2].trim() };
+      const name = line.replace(/^-\s*/, '').trim();
+      return name ? { site: name, url: '', anchor: '표내부', label: '' } : null;
+    })
+    .filter(Boolean);
+}
+
+window.__testParseProjectOutput = function () {
+  const sample = `[핵심 키워드]
+추석 다낭
+
+[보조 키워드]
+추석 연휴 다낭 항공권, 다낭 3박4일 일정, 다낭 미케비치 숙소
+
+[독자 관통선]
+누구 — 연차가 거의 안 남은 30대 직장인 부부
+고민 — 4일 중 이동에 이틀 날아가는 거 아닌가
+설득 — 첫날 컨디션은 버리지만, 연차 안 쓰고 3일 쓰는 게 낫다
+
+[검색해서 넣을 정보 항목]
+2026 추석 연휴 정확한 날짜
+인천/부산 출발 다낭 노선 시간대
+
+[특별히 강조하고 싶은 내용]
+새벽 도착 시 얼리체크인 비용이 따로 붙는다는 점
+
+[글 유형]
+비교형
+
+[비교 구간 설계]
+비교 대상 — 미케비치 vs 한강변 vs 구시가
+비교 기준 — 1박 가격, 공항 이동시간, 새벽 도착 적합도
+결론 방향 — 새벽 도착이면 미케비치, 저녁 외식 위주면 한강변
+
+[제휴 링크]
+- 아고다 (리조트 재고 보기)
+- 부킹닷컴 (무료 취소 조건 보기)
+- 호텔스컴바인 (지역별 최저가 비교하기)
+
+[참고 링크]
+[공휴일 캘린더 링크]
+
+---
+확인할 것
+□ 미케비치 대표 숙소 1박 가격
+□ 각 숙소 별점·리뷰 수`;
+
+  const { filled, missing } = parseProjectOutput(sample);
+  const rows = parseAffiliateSites(filled.affiliateSites || '');
+
+  const pass1 = Object.keys(filled).length === 9;
+  const pass2 = rows.length === 3;
+  const pass3 = rows.every(r => r.url === '');
+
+  console.log('[parseProjectOutput test]');
+  console.assert(pass1, `필드 수: expected 9, got ${Object.keys(filled).length}`);
+  console.assert(pass2, `affiliateSites 행 수: expected 3, got ${rows.length}`);
+  console.assert(pass3, 'url 필드가 빈 문자열이어야 함');
+  console.log(pass1 && pass2 && pass3 ? '✅ PASS' : '❌ FAIL', { filled, missing, rows });
+};
+
 export function getHTML() {
   return `
   <div class="info-blog-page">
@@ -32,6 +132,19 @@ export function getHTML() {
       <!-- 입력 폼 -->
       <section class="card ib-card">
         <h2 class="tg-card-title">글 정보 입력</h2>
+
+        <!-- 프로젝트 결과 붙여넣기 -->
+        <details class="ib-paste-section" id="ibPasteSection">
+          <summary class="ib-paste-summary">프로젝트 결과 붙여넣기 <span class="ib-paste-opt">(선택)</span></summary>
+          <div class="ib-paste-body">
+            <p class="ib-hint">Claude 프로젝트에서 받은 입력값을 통째로 붙여넣으면 아래 항목이 자동으로 채워져요</p>
+            <textarea id="ibPasteInput" class="ib-textarea" rows="8" placeholder="[핵심 키워드] ~ [참고 링크] 블록을 통째로 붙여넣으세요"></textarea>
+            <div class="ib-paste-actions">
+              <button type="button" class="btn-ib-fill" id="ibFillBtn">자동 채우기</button>
+              <span class="ib-fill-result hidden" id="ibFillResult"></span>
+            </div>
+          </div>
+        </details>
 
         <div class="ib-field">
           <label class="ib-label">핵심 키워드 <span class="req">*</span></label>
@@ -247,6 +360,62 @@ export function mount() {
     affiliateLinks.push({ site: '', url: '', anchor: '표내부', label: '' });
     renderAffiliateLinkRows();
   });
+
+  const ibPasteInput = document.getElementById('ibPasteInput');
+  const ibFillBtn = document.getElementById('ibFillBtn');
+  const ibFillResult = document.getElementById('ibFillResult');
+
+  ibFillBtn.addEventListener('click', () => {
+    const text = ibPasteInput.value.trim();
+    if (!text) return;
+
+    const { filled, missing } = parseProjectOutput(text);
+
+    if (Object.keys(filled).length === 0) {
+      ibFillResult.textContent = '형식을 인식하지 못했어요 — [핵심 키워드] 같은 헤더가 있어야 해요';
+      ibFillResult.classList.remove('hidden');
+      return;
+    }
+
+    const hasExisting = (
+      ibMainKeyword.value.trim() ||
+      ibSubKeywords.value.trim() ||
+      ibReaderProfile.value.trim() ||
+      document.getElementById('ibSearchTopics').value.trim() ||
+      ibEmphasizeContent.value.trim() ||
+      ibComparisonDesign.value.trim() ||
+      document.getElementById('ibRefLinks').value.trim() ||
+      affiliateLinks.length > 0
+    );
+
+    if (hasExisting && !confirm('이미 입력된 항목이 있어요. 덮어쓸까요?')) return;
+
+    if (filled.mainKeyword) ibMainKeyword.value = filled.mainKeyword;
+    if (filled.subKeywords) ibSubKeywords.value = filled.subKeywords.replace(/\n/g, ', ');
+    if (filled.readerProfile) ibReaderProfile.value = filled.readerProfile;
+    if (filled.searchItems) document.getElementById('ibSearchTopics').value = filled.searchItems;
+    if (filled.emphasize) ibEmphasizeContent.value = filled.emphasize;
+    if (filled.comparison) ibComparisonDesign.value = filled.comparison;
+    if (filled.refLinks) document.getElementById('ibRefLinks').value = filled.refLinks;
+
+    if (filled.contentType) {
+      const types = ['비교형', '구매형', '제품형', '정보형'];
+      const matched = types.find(t => filled.contentType.includes(t)) || '정보형';
+      const radio = document.querySelector(`input[name="ibContentType"][value="${matched}"]`);
+      if (radio) radio.checked = true;
+    }
+
+    if (filled.affiliateSites) {
+      affiliateLinks = parseAffiliateSites(filled.affiliateSites);
+      renderAffiliateLinkRows();
+    }
+
+    const filledCount = Object.keys(filled).length;
+    const missingText = missing.length > 0 ? ` 채우지 못한 항목: ${missing.join(', ')}` : '';
+    ibFillResult.textContent = `${filledCount}개 항목을 채웠어요.${missingText}`;
+    ibFillResult.classList.remove('hidden');
+  });
+
   const ibSearchTopics = document.getElementById('ibSearchTopics');
   const ibRefLinks = document.getElementById('ibRefLinks');
   const ibRefUploadZone = document.getElementById('ibRefUploadZone');
