@@ -206,6 +206,13 @@ export function getHTML() {
         </div>
 
         <div class="ib-field">
+          <label class="ib-label">확인한 가격·별점 <span class="ib-opt-label">(선택)</span></label>
+          <p class="ib-hint">직접 확인한 값을 적으면 비교표에 넣어드려요. 비우면 '확인 후 기입'으로 남습니다</p>
+          <textarea id="ibVerifiedPrices" class="ib-textarea" rows="3"
+            placeholder="예) 클룩 11,900원 별점 4.9 (3,690개)&#10;    마이리얼트립 12,751원 별점 5.0 (185개)"></textarea>
+        </div>
+
+        <div class="ib-field">
           <label class="ib-label">AI 작성 지침</label>
           <p class="ib-hint">글 스타일·구조·표현 방식 등 AI가 반드시 따랐으면 하는 규칙을 적어주세요 (없으면 비워두세요)</p>
           <textarea id="ibCustomDirectives" class="ib-textarea" rows="3"
@@ -508,6 +515,7 @@ export function mount() {
       fd.append('customDirectives', ibCustomDirectives.value);
       fd.append('contentType', getContentType());
       fd.append('comparisonDesign', ibComparisonDesign.value);
+      fd.append('verifiedPrices', document.getElementById('ibVerifiedPrices').value);
       fd.append('affiliateLinks', JSON.stringify(affiliateLinks.filter(l => l.url?.trim())));
       fd.append('refLinks', ibRefLinks.value);
       ibRefFiles.forEach(f => fd.append('refImages', f));

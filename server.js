@@ -518,7 +518,7 @@ app.post('/api/generate-info-blog', upload.array('refImages', 10), async (req, r
   const apiKey = req.headers['x-api-key'];
   if (!apiKey) return res.status(400).json({ error: 'API 키가 필요합니다.' });
 
-  const { mainKeyword, subKeywords, readerProfile, searchTopics, actualInfo, emphasizeContent, customDirectives, contentType, comparisonDesign, refLinks } = req.body;
+  const { mainKeyword, subKeywords, readerProfile, searchTopics, actualInfo, emphasizeContent, customDirectives, contentType, comparisonDesign, refLinks, verifiedPrices } = req.body;
   const affiliateLinks = (() => { try { return JSON.parse(req.body.affiliateLinks || '[]'); } catch { return []; } })();
   const refImages = req.files || [];
 
@@ -594,6 +594,10 @@ ${searchTopics.trim()}
       ? `\n[비교 구간 설계 — 아래 정보를 바탕으로 ⑤ 비교·선택 가이드 섹션을 구성할 것]\n${comparisonDesign.trim()}\n`
       : '';
 
+    const verifiedPricesBlock = verifiedPrices?.trim()
+      ? `\n[확인된 가격·별점]\n${verifiedPrices.trim()}\n위 값을 비교표의 해당 셀에 채우고, 가격 행 아래에 "(YYYY년 M월 기준)" 확인 시점을 표기한다. 입력이 없는 항목은 "(확인 후 기입)"으로 남긴다. 어떤 경우에도 가격·별점·리뷰수를 추정하거나 지어내지 않는다.\n`
+      : '';
+
     const affiliateBlock = affiliateLinks.length > 0
       ? `\n[제휴 배치도 — 아래 링크를 지정된 위치에 삽입할 것. 앵커 텍스트는 열마다 다르게]\n${affiliateLinks.map(l => `사이트: ${l.site || '미입력'} | URL: ${l.url} | 배치: ${l.anchor || '표내부'} | 레이블: ${l.label || ''} | 이유: ${l.reason || '없음'}`).join('\n')}\n각 링크의 '이유'가 있으면 그것을 근거로 "왜 내 링크에서 사야 하는지"를 쓴다. '이유'가 없으면 장단점 비교 방식으로 대체한다. 특가·할인·쿠폰·최저가는 입력값에 없으면 절대 지어내지 않는다.\n`
       : '\n- 삽입할 제휴 링크: 없음\n';
@@ -607,7 +611,7 @@ ${searchTopics.trim()}
 - 보조 키워드: ${subKeywords?.trim() || '없음'}
 - 글 유형: ${contentType?.trim() || '정보형'}
 - 실제 정보 (경험/사진 내용): ${actualInfo?.trim() || '없음'}
-${emphasizeBlock}${directivesBlock}${comparisonBlock}${affiliateBlock}${refSection}${searchedInfoSection}`;
+${emphasizeBlock}${directivesBlock}${comparisonBlock}${verifiedPricesBlock}${affiliateBlock}${refSection}${searchedInfoSection}`;
 
     const result = await withFallback(
       () => withRetry(() => withTimeout(() => model.generateContent(prompt), 50000)),
