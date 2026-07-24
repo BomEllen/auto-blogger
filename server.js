@@ -518,7 +518,7 @@ app.post('/api/generate-info-blog', upload.array('refImages', 10), async (req, r
   const apiKey = req.headers['x-api-key'];
   if (!apiKey) return res.status(400).json({ error: 'API 키가 필요합니다.' });
 
-  const { mainKeyword, subKeywords, targetReader, searchTopics, actualInfo, emphasizeContent, customDirectives, contentType, comparisonDesign, refLinks } = req.body;
+  const { mainKeyword, subKeywords, readerProfile, searchTopics, actualInfo, emphasizeContent, customDirectives, contentType, comparisonDesign, refLinks } = req.body;
   const affiliateLinks = (() => { try { return JSON.parse(req.body.affiliateLinks || '[]'); } catch { return []; } })();
   const refImages = req.files || [];
 
@@ -598,10 +598,13 @@ ${searchTopics.trim()}
       ? `\n[제휴 배치도 — 아래 링크를 지정된 위치에 삽입할 것. 앵커 텍스트는 열마다 다르게]\n${affiliateLinks.map(l => `사이트: ${l.site || '미입력'} | URL: ${l.url} | 배치: ${l.anchor || '표내부'} | 레이블: ${l.label || ''}`).join('\n')}\n`
       : '\n- 삽입할 제휴 링크: 없음\n';
 
-    const prompt = `[입력값]
+    const readerProfileBlock = readerProfile?.trim()
+      ? `[독자 관통선 — 글 전체에서 이 독자 한 명을 ①도입·④경험·⑤결론·링크 직전 4자리에서 일관되게 호출할 것]\n${readerProfile.trim()}\n\n`
+      : '';
+
+    const prompt = `${readerProfileBlock}[입력값]
 - 핵심 키워드: ${mainKeyword.trim()}
 - 보조 키워드: ${subKeywords?.trim() || '없음'}
-- 타겟 독자: ${targetReader?.trim() || '일반 독자'}
 - 글 유형: ${contentType?.trim() || '정보형'}
 - 실제 정보 (경험/사진 내용): ${actualInfo?.trim() || '없음'}
 ${emphasizeBlock}${directivesBlock}${comparisonBlock}${affiliateBlock}${refSection}${searchedInfoSection}`;

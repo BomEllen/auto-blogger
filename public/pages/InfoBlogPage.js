@@ -46,9 +46,10 @@ export function getHTML() {
         </div>
 
         <div class="ib-field">
-          <label class="ib-label">타겟 독자</label>
-          <p class="ib-hint">이 글을 읽을 독자층</p>
-          <input type="text" id="ibTargetReader" class="ib-input" placeholder="예) 6월에 오사카 여행 가는 20~30대" />
+          <label class="ib-label">독자 관통선</label>
+          <p class="ib-hint">글을 읽을 독자 한 명을 구체적으로 묘사해주세요. 도입부터 링크까지 이 사람이 글 전체에 일관되게 등장해요</p>
+          <textarea id="ibReaderProfile" class="ib-textarea" rows="3"
+            placeholder="예) 다음 달 오사카 3박 여행을 앞두고 숙소를 아직 못 정한 30대 직장인&#10;가격이 올랐을까봐 걱정되고, 역에서 가깝고 깔끔한 비즈니스 호텔을 원함&#10;무료 취소 가능한 곳으로 먼저 잡아두고 싶어함"></textarea>
         </div>
 
         <div class="ib-field">
@@ -192,7 +193,7 @@ export function mount() {
   const ibMaskedKey = document.getElementById('ibMaskedKey');
   const ibMainKeyword = document.getElementById('ibMainKeyword');
   const ibSubKeywords = document.getElementById('ibSubKeywords');
-  const ibTargetReader = document.getElementById('ibTargetReader');
+  const ibReaderProfile = document.getElementById('ibReaderProfile');
   const ibActualInfo = document.getElementById('ibActualInfo');
   const ibEmphasizeContent = document.getElementById('ibEmphasizeContent');
   const ibCustomDirectives = document.getElementById('ibCustomDirectives');
@@ -329,7 +330,7 @@ export function mount() {
       const fd = new FormData();
       fd.append('mainKeyword', mainKeyword);
       fd.append('subKeywords', ibSubKeywords.value);
-      fd.append('targetReader', ibTargetReader.value);
+      fd.append('readerProfile', ibReaderProfile.value);
       fd.append('searchTopics', ibSearchTopics.value);
       fd.append('actualInfo', actualInfo);
       fd.append('emphasizeContent', ibEmphasizeContent.value);
