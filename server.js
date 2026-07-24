@@ -108,19 +108,60 @@ function sanitizeFormattingHtml(text) {
   });
 }
 
-function validateInfoBlogOutput(body, affiliateLinks, contentType) {
+function validateInfoBlogOutput(body, affiliateLinks, contentType, verifiedPrices) {
   const violations = [];
+
+  // 사진 마커 수
   const photoMarkers = (body.match(/\[사진 \d+/g) || []).length;
   if (photoMarkers < 8) violations.push(`사진 마커 ${photoMarkers}개 — 최소 8개 필요`);
+
+  // 비교형: 표 마커 2개 이상
   if (['비교형', '구매형', '제품형'].includes(contentType)) {
     const tableMarkers = (body.match(/\[표 삽입/g) || []).length;
     if (tableMarkers < 2) violations.push(`표 마커 ${tableMarkers}개 — ${contentType}에는 기본정보표+비교표 최소 2개 필요`);
+
+    // 비교표 마지막 행이 링크 행인지
+    const compTableMatch = body.match(/\[표 삽입[^\]]*비교표[^\]]*\]([\s\S]*?)(?=\n\n\S|\[표 삽입|$)/);
+    if (compTableMatch) {
+      const tableBody = compTableMatch[1];
+      const rows = tableBody.split('\n').map(r => r.trim()).filter(Boolean);
+      const lastRow = rows[rows.length - 1] || '';
+      if (!lastRow.includes('[링크:')) {
+        violations.push('비교표 마지막 행이 링크 행이 아님');
+      } else {
+        // 링크 앵커 텍스트가 열마다 동일한지
+        const anchors = [...lastRow.matchAll(/\[링크:[^\]]*\/\s*([^\]]+?)\s*\]/g)].map(m => m[1].trim());
+        const uniqueAnchors = new Set(anchors);
+        if (anchors.length > 1 && uniqueAnchors.size === 1) {
+          violations.push(`비교표 링크 앵커 텍스트가 모두 동일함: "${anchors[0]}"`);
+        }
+      }
+    }
+
+    // 가격 셀에 숫자가 있는데 verifiedPrices 미입력 — 환각 탐지
+    if (!verifiedPrices?.trim()) {
+      const priceRowMatch = body.match(/가격\s*\/[^\n]*/);
+      if (priceRowMatch && /\d{3,}/.test(priceRowMatch[0])) {
+        violations.push('비교표 가격 셀에 숫자가 있으나 [확인된 가격·별점] 입력이 없음 — 가격 환각 의심');
+      }
+    }
   }
-  if (affiliateLinks.length > 0 && !body.includes('제휴 링크가 포함')) {
-    violations.push('대가성 고지 문구 누락 — 본문 최하단에 추가 필요');
+
+  // 동일 도메인(사이트명) 5회 초과
+  const linkMatches = [...body.matchAll(/\[링크:\s*([^/\]]+)/g)].map(m => m[1].trim());
+  const domainCount = {};
+  for (const d of linkMatches) { domainCount[d] = (domainCount[d] || 0) + 1; }
+  for (const [d, cnt] of Object.entries(domainCount)) {
+    if (cnt > 5) violations.push(`동일 사이트 "${d}" ${cnt}회 — 5회 초과 금지`);
   }
-  const forbidden = ['최저가 보장', '무조건 추천', '지금 안 사면 손해', '후회 없음'];
+
+  // 금지 표현
+  const forbidden = ['최저가 보장', '무조건', '강추', '지금 안 사면 손해', '후회 없음', '필수템'];
   forbidden.forEach(f => { if (body.includes(f)) violations.push(`금지 표현 "${f}" 사용됨`); });
+
+  if (violations.length > 0) {
+    console.warn('[info-blog validate] 위반 항목:', violations);
+  }
   return violations;
 }
 
@@ -650,8 +691,8 @@ ${emphasizeBlock}${directivesBlock}${comparisonBlock}${verifiedPricesBlock}${aff
       return res.status(500).json({ error: '글 생성에 실패했어요. 다시 시도해주세요.' });
     }
 
-    // 후처리 검증 (사진 마커 수, 비교표 여부, 대가성 고지, 금지 표현)
-    const infoViolations = validateInfoBlogOutput(body, affiliateLinks, contentType?.trim() || '정보형');
+    // 후처리 검증
+    const infoViolations = validateInfoBlogOutput(body, affiliateLinks, contentType?.trim() || '정보형', verifiedPrices);
     if (infoViolations.length > 0) {
       console.warn('[info-blog] 검증 위반:', infoViolations);
       const retryPrompt2 = `[규칙 위반 수정]\n다음 항목이 지켜지지 않았습니다:\n${infoViolations.map(v => `- ${v}`).join('\n')}\n\n위 항목만 고쳐서 전체 글을 다시 동일한 [TITLE][BODY] 형식으로 출력하세요.\n\n---\n\n${prompt}`;
