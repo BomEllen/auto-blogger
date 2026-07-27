@@ -137,7 +137,7 @@ export function getHTML() {
         <details class="ib-paste-section" id="ibPasteSection">
           <summary class="ib-paste-summary">프로젝트 결과 붙여넣기 <span class="ib-paste-opt">(선택)</span></summary>
           <div class="ib-paste-body">
-            <p class="ib-hint">Claude 프로젝트에서 받은 입력값을 통째로 붙여넣으면 아래 항목이 자동으로 채워져요</p>
+            <p class="ib-hint">Claude 프로젝트에서 받은 입력값을 통째로 붙여넣으면 자동으로 채워져요. 직접 수정한 뒤엔 아래 버튼을 눌러주세요</p>
             <textarea id="ibPasteInput" class="ib-textarea" rows="8" placeholder="[핵심 키워드] ~ [참고 링크] 블록을 통째로 붙여넣으세요"></textarea>
             <div class="ib-paste-actions">
               <button type="button" class="btn-ib-fill" id="ibFillBtn">자동 채우기</button>
@@ -375,7 +375,7 @@ export function mount() {
   const ibFillBtn = document.getElementById('ibFillBtn');
   const ibFillResult = document.getElementById('ibFillResult');
 
-  ibFillBtn.addEventListener('click', () => {
+  function runAutoFill() {
     const text = ibPasteInput.value.trim();
     if (!text) return;
 
@@ -424,6 +424,12 @@ export function mount() {
     const missingText = missing.length > 0 ? ` 채우지 못한 항목: ${missing.join(', ')}` : '';
     ibFillResult.textContent = `${filledCount}개 항목을 채웠어요.${missingText}`;
     ibFillResult.classList.remove('hidden');
+  }
+
+  ibFillBtn.addEventListener('click', runAutoFill);
+
+  ibPasteInput.addEventListener('paste', () => {
+    setTimeout(runAutoFill, 0);
   });
 
   const ibSearchTopics = document.getElementById('ibSearchTopics');
