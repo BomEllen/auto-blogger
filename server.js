@@ -165,11 +165,23 @@ function validateInfoBlogOutput(body, affiliateLinks, contentType, verifiedPrice
   return violations;
 }
 
+function stripTitleFormatting(t) {
+  if (!t) return t;
+  return t
+    .replace(/<[^>]+>/g, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/_(.+?)_/g, '$1')
+    .replace(/~~(.+?)~~/g, '$1')
+    .trim();
+}
+
 function parseTitles(titleBlock) {
   if (!titleBlock) return [];
-  const numbered = [...titleBlock.matchAll(/^\d+\.\s*(.+)$/gm)].map(m => m[1].trim()).filter(Boolean);
+  const numbered = [...titleBlock.matchAll(/^\d+\.\s*(.+)$/gm)].map(m => stripTitleFormatting(m[1].trim())).filter(Boolean);
   if (numbered.length > 0) return numbered;
-  return [titleBlock.trim()].filter(Boolean);
+  return [stripTitleFormatting(titleBlock.trim())].filter(Boolean);
 }
 
 function parseBlogResponse(text) {
@@ -179,7 +191,7 @@ function parseBlogResponse(text) {
     return m ? m[1].trim() : '';
   };
   return {
-    title: extract('TITLE'),
+    title: stripTitleFormatting(extract('TITLE')),
     body: extract('BODY'),
   };
 }
