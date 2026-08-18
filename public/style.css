@@ -194,6 +194,16 @@ body {
 }
 .step-title { font-size: 16px; font-weight: 700; margin-bottom: 20px; color: var(--text); }
 .step-desc { font-size: 13px; color: var(--text-2); margin-top: -14px; margin-bottom: 20px; }
+.btn-reset-draft {
+  position: absolute; top: 12px; right: 20px;
+  display: inline-flex; align-items: center; gap: 4px;
+  background: transparent; border: 1px solid rgba(0,0,0,0.1);
+  border-radius: 99px; padding: 5px 12px;
+  font-size: 12px; font-weight: 600; color: var(--text-2);
+  cursor: pointer; transition: border-color 0.2s, color 0.2s;
+}
+.btn-reset-draft svg { width: 13px; height: 13px; }
+.btn-reset-draft:hover { border-color: #e05b8a; color: #e05b8a; }
 
 /* ── API 카드 ── */
 .api-card { transition: border-color 0.3s; }

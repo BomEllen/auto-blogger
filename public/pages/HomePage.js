@@ -114,6 +114,10 @@ export function getHTML() {
         <!-- Step 1 -->
         <section class="card step-card">
           <div class="step-label">STEP 1</div>
+          <button class="btn-reset-draft" id="resetDraftBtn" title="입력한 내용과 사진을 모두 지워요">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+            초기화
+          </button>
           <h2 class="step-title">카테고리 · 장소 정보</h2>
           <div class="category-tabs">
             <button class="cat-tab active" data-cat="cafe">
@@ -400,6 +404,64 @@ export function mount() {
     etc:           [],
   };
 
+  /* ── 임시저장 (IndexedDB) ── */
+  const DRAFT_DB_NAME = 'blogGeneratorDraft';
+  const DRAFT_STORE = 'draft';
+  const DRAFT_KEY = 'current';
+
+  function openDraftDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DRAFT_DB_NAME, 1);
+      req.onupgradeneeded = () => { req.result.createObjectStore(DRAFT_STORE); };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function saveDraftToDB(draft) {
+    try {
+      const db = await openDraftDB();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(DRAFT_STORE, 'readwrite');
+        tx.objectStore(DRAFT_STORE).put(draft, DRAFT_KEY);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+      db.close();
+    } catch (err) {
+      console.warn('[draft] 저장 실패:', err.message);
+    }
+  }
+
+  async function loadDraftFromDB() {
+    try {
+      const db = await openDraftDB();
+      const draft = await new Promise((resolve, reject) => {
+        const tx = db.transaction(DRAFT_STORE, 'readonly');
+        const req = tx.objectStore(DRAFT_STORE).get(DRAFT_KEY);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+      db.close();
+      return draft || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function clearDraftDB() {
+    try {
+      const db = await openDraftDB();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(DRAFT_STORE, 'readwrite');
+        tx.objectStore(DRAFT_STORE).delete(DRAFT_KEY);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+      db.close();
+    } catch { /* 무시 */ }
+  }
+
   /* ── DOM ── */
   const apiCard         = document.getElementById('apiCard');
   const apiCardDesc     = document.getElementById('apiCardDesc');
@@ -533,18 +595,120 @@ export function mount() {
     etc:           document.getElementById('fields-etc'),
   };
 
+  function activateCategory(cat) {
+    selectedCategory = cat;
+    catTabs.forEach((t) => t.classList.toggle('active', t.dataset.cat === cat));
+    Object.entries(fieldGroups).forEach(([c, el]) => el.classList.toggle('hidden', c !== selectedCategory));
+  }
+
+  function collectAllFieldsSnapshot() {
+    const result = {};
+    Object.entries(fieldGroups).forEach(([cat, group]) => {
+      const data = {};
+      group.querySelectorAll('input[type="text"]').forEach((inp) => { if (inp.name) data[inp.name] = inp.value; });
+      const radioNames = [...new Set([...group.querySelectorAll('input[type="radio"]')].map(r => r.name))];
+      radioNames.forEach(name => {
+        const r = group.querySelector(`input[type="radio"][name="${name}"]:checked`);
+        if (r) data[name] = r.value;
+      });
+      result[cat] = data;
+    });
+    return result;
+  }
+
+  function applyFieldsSnapshot(fieldsSnap) {
+    if (!fieldsSnap) return;
+    Object.entries(fieldGroups).forEach(([cat, group]) => {
+      const data = fieldsSnap[cat];
+      if (!data) return;
+      group.querySelectorAll('input[type="text"]').forEach((inp) => {
+        if (inp.name && data[inp.name] !== undefined) inp.value = data[inp.name];
+      });
+      Object.entries(data).forEach(([name, val]) => {
+        const radio = group.querySelector(`input[type="radio"][name="${name}"][value="${CSS.escape(val)}"]`);
+        if (radio) radio.checked = true;
+      });
+    });
+  }
+
+  function buildDraftSnapshot() {
+    return {
+      category: selectedCategory,
+      rating: selectedRating,
+      fields: collectAllFieldsSnapshot(),
+      memo: document.getElementById('memoInput').value,
+      customDirectives: document.getElementById('customDirectivesInput').value,
+      sections: sections.map(s => ({
+        name: s.name,
+        fixed: s.fixed,
+        photos: s.photos,
+        originalFlags: s.photos.map(f => originalFiles.has(f)),
+      })),
+    };
+  }
+
+  let draftSaveTimer = null;
+  function scheduleSaveDraft() {
+    clearTimeout(draftSaveTimer);
+    draftSaveTimer = setTimeout(() => { saveDraftToDB(buildDraftSnapshot()); }, 600);
+  }
+
+  async function restoreDraftOrInit() {
+    const draft = await loadDraftFromDB();
+    if (!draft) { initSections(selectedCategory); renderSections(); return; }
+    activateCategory(draft.category || selectedCategory);
+    applyFieldsSnapshot(draft.fields);
+    updateRating(typeof draft.rating === 'number' ? draft.rating : selectedRating);
+    document.getElementById('memoInput').value = draft.memo || '';
+    document.getElementById('customDirectivesInput').value = draft.customDirectives || '';
+    originalFiles.clear();
+    sections = (draft.sections || []).map(s => {
+      const photos = (s.photos || []).filter(f => f instanceof Blob);
+      photos.forEach((f, i) => { if (s.originalFlags && s.originalFlags[i]) originalFiles.add(f); });
+      return { name: s.name || '', fixed: !!s.fixed, photos };
+    });
+    if (sections.length === 0) initSections(draft.category || selectedCategory);
+    renderSections();
+  }
+
+  async function resetDraft() {
+    const ok = await showConfirm('입력한 모든 내용과 사진이 삭제돼요.\n초기화할까요?');
+    if (!ok) return;
+    await clearDraftDB();
+    sections.forEach(s => s.photos.forEach(f => {
+      const u = thumbnailCache.get(f);
+      if (u) { URL.revokeObjectURL(u); thumbnailCache.delete(f); }
+    }));
+    originalFiles.clear();
+    Object.values(fieldGroups).forEach(group => {
+      group.querySelectorAll('input[type="text"]').forEach((inp) => { inp.value = ''; inp.classList.remove('ai-filled'); });
+      group.querySelectorAll('input[type="radio"]').forEach((r) => { r.checked = r.defaultChecked; });
+    });
+    document.getElementById('memoInput').value = '';
+    document.getElementById('customDirectivesInput').value = '';
+    updateRating(4.5);
+    initSections(selectedCategory);
+    renderSections();
+    document.getElementById('resultCard').classList.add('hidden');
+    document.getElementById('progressCard').classList.add('hidden');
+  }
+
   catTabs.forEach((tab) => {
     tab.addEventListener('click', () => {
-      catTabs.forEach((t) => t.classList.remove('active'));
-      tab.classList.add('active');
-      selectedCategory = tab.dataset.cat;
-      Object.entries(fieldGroups).forEach(([cat, el]) =>
-        el.classList.toggle('hidden', cat !== selectedCategory)
-      );
+      activateCategory(tab.dataset.cat);
       initSections(selectedCategory);
       renderSections();
+      scheduleSaveDraft();
     });
   });
+
+  Object.values(fieldGroups).forEach((group) => {
+    group.addEventListener('input', scheduleSaveDraft);
+    group.addEventListener('change', scheduleSaveDraft);
+  });
+  document.getElementById('memoInput').addEventListener('input', scheduleSaveDraft);
+  document.getElementById('customDirectivesInput').addEventListener('input', scheduleSaveDraft);
+  document.getElementById('resetDraftBtn').addEventListener('click', resetDraft);
 
   /* ── 별점 ── */
   function setStarFills(rating) {
@@ -559,6 +723,7 @@ export function mount() {
     selectedRating = val;
     document.getElementById('ratingValue').textContent = `${val} / 5`;
     setStarFills(val);
+    scheduleSaveDraft();
   }
 
   document.getElementById('starsDisplay').querySelectorAll('.zone').forEach((zone) => {
@@ -643,18 +808,19 @@ export function mount() {
         if (r.value === val) r.checked = true;
       });
     });
+    scheduleSaveDraft();
   }
 
   /* ── STEP 3: 목차별 사진 ── */
   const sectionsContainer = document.getElementById('sectionsContainer');
   const addSectionBtn     = document.getElementById('addSectionBtn');
 
-  initSections(selectedCategory);
-  renderSections();
+  restoreDraftOrInit();
 
   addSectionBtn.addEventListener('click', () => {
     sections.push({ name: '', photos: [], fixed: false });
     renderSections();
+    scheduleSaveDraft();
   });
 
   function getGlobalPhotoIndex(sectionIdx, localIdx) {
@@ -668,6 +834,7 @@ export function mount() {
     const sec = sections[sectionIdx];
     sec.photos.push(...imgs.slice(0, 60 - sec.photos.length));
     renderSectionGrid(sectionIdx);
+    scheduleSaveDraft();
   }
 
   function deletePhotoFromSection(sectionIdx, photoIdx) {
@@ -677,6 +844,7 @@ export function mount() {
     originalFiles.delete(file);
     sections[sectionIdx].photos.splice(photoIdx, 1);
     renderSectionGrid(sectionIdx);
+    scheduleSaveDraft();
   }
 
   function buildSectionCard(section, idx) {
@@ -693,7 +861,7 @@ export function mount() {
       input.className = 'section-title-input';
       input.type = 'text';
       input.value = section.name;
-      input.addEventListener('input', () => { section.name = input.value; });
+      input.addEventListener('input', () => { section.name = input.value; scheduleSaveDraft(); });
       header.appendChild(numLabel);
       header.appendChild(input);
     } else {
@@ -702,7 +870,7 @@ export function mount() {
       input.type = 'text';
       input.placeholder = '목차 이름 입력';
       input.value = section.name;
-      input.addEventListener('input', () => { section.name = input.value; });
+      input.addEventListener('input', () => { section.name = input.value; scheduleSaveDraft(); });
       header.appendChild(input);
       const removeBtn = document.createElement('button');
       removeBtn.className = 'btn-remove-section';
@@ -712,6 +880,7 @@ export function mount() {
         section.photos.forEach(f => { const u = thumbnailCache.get(f); if (u) { URL.revokeObjectURL(u); thumbnailCache.delete(f); } });
         sections.splice(idx, 1);
         renderSections();
+        scheduleSaveDraft();
       });
       header.appendChild(removeBtn);
     }
@@ -750,6 +919,7 @@ export function mount() {
       section.photos.forEach(f => { const u = thumbnailCache.get(f); if (u) { URL.revokeObjectURL(u); thumbnailCache.delete(f); } });
       section.photos = [];
       renderSectionGrid(idx);
+      scheduleSaveDraft();
     });
     bar.append(countText, clearBtn);
     card.appendChild(bar);
@@ -801,6 +971,7 @@ export function mount() {
         e.stopPropagation();
         if (originalFiles.has(file)) { originalFiles.delete(file); origToggle.classList.remove('is-orig'); origToggle.textContent = '압축'; }
         else { originalFiles.add(file); origToggle.classList.add('is-orig'); origToggle.textContent = '원본'; }
+        scheduleSaveDraft();
       });
       const delBtn = document.createElement('button');
       delBtn.className = 'thumb-del';
@@ -824,6 +995,7 @@ export function mount() {
           section.photos.splice(i, 0, dragged);
           dragSrcIndex = null; dragSrcSection = null;
           renderSectionGrid(sectionIdx);
+          scheduleSaveDraft();
         }
       });
       thumb.append(img, num, origToggle, delBtn);
