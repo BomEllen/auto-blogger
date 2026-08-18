@@ -27,7 +27,7 @@ const upload = multer({
     destination: (_req, _file, cb) => cb(null, os.tmpdir()),
     filename: (_req, _file, cb) => cb(null, `upload-${Date.now()}-${Math.random().toString(36).slice(2)}`),
   }),
-  limits: { fileSize: 10 * 1024 * 1024, files: 61 },
+  limits: { fileSize: 10 * 1024 * 1024, files: 100 },
 });
 
 app.use(express.json());
