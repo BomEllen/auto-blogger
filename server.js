@@ -280,7 +280,8 @@ function isRetryable(err) {
   return msg.includes('503')
     || msg.toLowerCase().includes('high demand')
     || msg.toLowerCase().includes('overloaded')
-    || msg.toLowerCase().includes('service unavailable');
+    || msg.toLowerCase().includes('service unavailable')
+    || msg.startsWith('timeout_');
 }
 
 async function withRetry(fn, maxRetries = 5, baseDelayMs = 3000, onRetry) {
@@ -335,6 +336,9 @@ function friendlyGeminiError(err) {
   }
   if (msg.includes('401') || msg.includes('403') || msg.toLowerCase().includes('api key') || msg.toLowerCase().includes('permission')) {
     return `API 키가 유효하지 않거나 권한이 없습니다.`;
+  }
+  if (msg.startsWith('timeout_')) {
+    return `AI가 응답하는 데 시간이 오래 걸리고 있어요. 사진이 많을수록 시간이 더 걸릴 수 있어요. 잠시 후 다시 시도해주세요.`;
   }
   return msg.substring(0, 200);
 }
@@ -971,7 +975,7 @@ ${photoOrderNote}
 
     const blogResult = await withFallback(
       () => withRetry(
-        () => withTimeout(() => blogModel.generateContent(prompt), 50000),
+        () => withTimeout(() => blogModel.generateContent(prompt), 120000),
         3, 3000,
         (attempt) => send({ type: 'status', message: `AI 서버가 바빠서 재시도 중... (${attempt}/3)` })
       ),
@@ -979,7 +983,7 @@ ${photoOrderNote}
         send({ type: 'status', message: 'AI 서버 과부하 — 대체 모델로 전환 중...' });
         const fbModel = genAI.getGenerativeModel({ model: FALLBACK_MODEL, systemInstruction: STYLE_GUIDE });
         return withRetry(
-          () => withTimeout(() => fbModel.generateContent(prompt), 50000),
+          () => withTimeout(() => fbModel.generateContent(prompt), 120000),
           2, 2000,
           (attempt) => send({ type: 'status', message: `대체 모델 재시도 중... (${attempt}/2)` })
         );
@@ -993,10 +997,10 @@ ${photoOrderNote}
       send({ type: 'status', message: '규칙 검수 중 — 자동 수정...' });
       const retryPrompt = `[규칙 위반 수정]\n다음 항목이 지켜지지 않았습니다:\n${violations.map((v) => `- ${v}`).join('\n')}\n\n위 항목만 고쳐서 전체 글을 다시 동일한 [TITLE][BODY][HASHTAGS] 형식으로 출력하세요.\n\n---\n\n${prompt}`;
       const retryResult = await withFallback(
-        () => withRetry(() => withTimeout(() => blogModel.generateContent(retryPrompt), 50000), 2, 3000),
+        () => withRetry(() => withTimeout(() => blogModel.generateContent(retryPrompt), 120000), 2, 3000),
         () => {
           const fbModel = genAI.getGenerativeModel({ model: FALLBACK_MODEL, systemInstruction: STYLE_GUIDE });
-          return withRetry(() => withTimeout(() => fbModel.generateContent(retryPrompt), 50000), 2, 2000);
+          return withRetry(() => withTimeout(() => fbModel.generateContent(retryPrompt), 120000), 2, 2000);
         }
       );
       parsed = parseBlogResponse(retryResult.response.text());
