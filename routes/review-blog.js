@@ -1,0 +1,432 @@
+const express = require('express');
+const path = require('path');
+const fs = require('fs');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { OpenAI } = require('openai');
+const { GEMINI_MODEL, FALLBACK_MODEL, withTimeout, withRetry, withFallback, friendlyGeminiError } = require('../lib/ai');
+const { upload, imagePart, cleanupFiles } = require('../lib/upload');
+const { fetchNaverBlogTitles } = require('../lib/naver');
+const { sanitizeFormattingHtml, stripTitleFormatting } = require('../lib/text');
+
+const router = express.Router();
+
+let STYLE_SAMPLES = '';
+try {
+  const raw = fs.readFileSync(path.join(__dirname, '../prompts/style-samples.txt'), 'utf-8').trim();
+  // 안내 헤더와 빈 예시 placeholder는 제외하고 실제 글만 추출
+  const blocks = raw.split('=====').map(b => b.trim()).filter(b => b && !b.startsWith('아래 글들을') && !b.startsWith('(여기에'));
+  if (blocks.length > 0) STYLE_SAMPLES = blocks.join('\n\n=====\n\n');
+} catch {
+  // 파일 없으면 무시
+}
+
+let STYLE_GUIDE = '';
+try {
+  STYLE_GUIDE = fs.readFileSync(path.join(__dirname, '../prompts/review-blog-guide.md'), 'utf-8').trim();
+} catch {
+  // 파일 없으면 무시
+}
+
+function getCategoryName(category) {
+  return { cafe: '카페', restaurant: '음식점', accommodation: '숙소', etc: '기타' }[category] || '';
+}
+
+function getExtractionFields(category) {
+  if (category === 'cafe') return `{ "name": "카페명", "location": "주소 또는 위치", "hours": "영업시간", "parking": "주차 가능/불가/인근 유료주차 중 하나", "amenities": "편의시설 (와이파이/콘센트/테라스 등 쉼표 구분)" }`;
+  if (category === 'restaurant') return `{ "name": "식당명", "location": "주소 또는 위치", "hours": "영업시간", "menu": "대표메뉴와 가격", "reservation": "예약 필수/예약 가능/예약 불필요 중 하나", "parking": "주차 가능/불가/인근 유료주차 중 하나" }`;
+  if (category === 'accommodation') return `{ "name": "숙소명", "location": "주소 또는 위치", "price": "1박 가격", "checkin": "체크인 시간", "checkout": "체크아웃 시간", "phone": "전화번호" }`;
+  if (category === 'etc') return `{ "name": "장소 이름", "location": "주소 또는 위치", "hours": "영업시간", "parking": "주차 가능/불가/인근 유료주차 중 하나", "extra": "기타 정보" }`;
+  return '{}';
+}
+
+function formatHours(hoursStr) {
+  if (!hoursStr) return hoursStr;
+  const DAY_ORDER = ['월', '화', '수', '목', '금', '토', '일'];
+  const dayMap = {};
+  const entries = hoursStr.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
+  for (const entry of entries) {
+    const m = entry.match(/^(월|화|수|목|금|토|일)(요일)?\s*(.+)$/);
+    if (m) dayMap[m[1]] = m[3].trim().replace(/\s*-\s*/g, '-');
+  }
+  if (Object.keys(dayMap).length === 0) return hoursStr;
+  const days = DAY_ORDER.filter(d => dayMap[d]);
+  const groups = [];
+  let i = 0;
+  while (i < days.length) {
+    const time = dayMap[days[i]];
+    let j = i + 1;
+    while (j < days.length && dayMap[days[j]] === time && DAY_ORDER.indexOf(days[j]) === DAY_ORDER.indexOf(days[j - 1]) + 1) j++;
+    const span = days.slice(i, j);
+    groups.push(span.length === 1 ? `${span[0]} ${time}` : `${span[0]}~${span[span.length - 1]} ${time}`);
+    i = j;
+  }
+  return groups.join(' / ');
+}
+
+function buildCategoryInfoText(category, info) {
+  const hours = formatHours(info.hours) || '미입력';
+  if (category === 'cafe') return `카페 정보:\n- 카페명: ${info.name}\n- 위치: ${info.location}\n- 영업시간: ${hours}\n- 주차: ${info.parking || '미입력'}\n- 편의시설: ${info.amenities || '미입력'}`;
+  if (category === 'restaurant') return `음식점 정보:\n- 식당명: ${info.name}\n- 위치: ${info.location}\n- 영업시간: ${hours}\n- 대표메뉴 및 가격: ${info.menu || '미입력'}\n- 예약: ${info.reservation || '미입력'}\n- 주차: ${info.parking || '미입력'}`;
+  if (category === 'accommodation') return `숙소 정보:\n- 숙소명: ${info.name}\n- 위치: ${info.location}\n- 1박 가격: ${info.price || '미입력'}\n- 체크인: ${info.checkin || '미입력'}\n- 체크아웃: ${info.checkout || '미입력'}\n- 전화번호: ${info.phone || '미입력'}`;
+  if (category === 'etc') return `장소 정보:\n- 장소명: ${info.name}\n- 위치: ${info.location}\n- 영업시간: ${hours}\n- 주차: ${info.parking || '미입력'}\n- 기타 정보: ${info.extra || '미입력'}`;
+  return '';
+}
+
+function parseBlogResponse(text) {
+  const extract = (tag) => {
+    const re = new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`);
+    const m = text.match(re);
+    return m ? m[1].trim() : '';
+  };
+  return {
+    title: stripTitleFormatting(extract('TITLE')),
+    body: extract('BODY'),
+  };
+}
+
+function validateBlogOutput(parsed, photoCount) {
+  const violations = [];
+
+  // 사진 마커 순서 검증
+  const markers = [...(parsed.body || '').matchAll(/\[사진(\d+)\]/g)].map((m) => parseInt(m[1]));
+  for (let i = 0; i < markers.length - 1; i++) {
+    if (markers[i] >= markers[i + 1]) {
+      violations.push(`사진 마커 순서 위반 (${markers.join('→')}) — [사진1]부터 오름차순으로`);
+      break;
+    }
+  }
+
+  // 사진 마커 개수 검증 — 제공된 사진 수와 마커 수가 일치해야 함
+  if (photoCount > 0) {
+    if (markers.length !== photoCount) {
+      violations.push(`사진 마커 ${markers.length}개 — 제공된 사진 ${photoCount}장과 불일치. [사진1]~[사진${photoCount}] 모두 등장해야 함`);
+    } else {
+      // 1~N이 빠짐없이 있는지 확인
+      const markerSet = new Set(markers);
+      const missing = [];
+      for (let i = 1; i <= photoCount; i++) { if (!markerSet.has(i)) missing.push(i); }
+      if (missing.length > 0) {
+        violations.push(`[사진${missing.join('], [사진')}] 마커 누락 — 모든 사진에 마커가 있어야 함`);
+      }
+    }
+  }
+
+  // 기본 정보 박스 존재 여부 (📍가 없으면 기본 정보 박스 누락)
+  if (!(parsed.body || '').includes('📍')) {
+    violations.push('기본 정보 박스(📍⏰🚗📶) 누락 — 목차 아래에 반드시 포함');
+  }
+
+  // 이모지 수 검증 (기본 박스 📍⏰🚗📶 + 목차 🌲 + 별점 ⭐ 제외 후 3개 초과 여부)
+  const allEmoji = (parsed.body || '').match(/\p{Emoji_Presentation}|\p{Extended_Pictographic}/gu) || [];
+  const fixedEmoji = (parsed.body || '').match(/[📍⏰🚗📶🌲⭐]/gu) || [];
+  const freeEmoji = allEmoji.length - fixedEmoji.length;
+  if (freeEmoji > 3) {
+    violations.push(`본문 이모지 ${freeEmoji}개 — 기본 정보 박스·목차·별점 제외 최대 3개`);
+  }
+
+  return violations;
+}
+
+async function withConcurrency(tasks, concurrency, fn) {
+  const results = new Array(tasks.length);
+  let next = 0;
+  async function worker() {
+    while (next < tasks.length) {
+      const i = next++;
+      results[i] = await fn(tasks[i]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, worker));
+  return results;
+}
+
+// ── API 키 검증 ──
+router.post('/verify-key', async (req, res) => {
+  const apiKey = req.headers['x-api-key'];
+  if (!apiKey) return res.status(400).json({ error: 'API 키를 입력해주세요.' });
+
+  try {
+    const testResp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}&pageSize=1`
+    );
+    if (testResp.ok) return res.json({ ok: true });
+    const errBody = await testResp.json().catch(() => ({}));
+    const errMsg = errBody?.error?.message || `HTTP ${testResp.status}`;
+    const statusCode = [400, 401, 403].includes(testResp.status) ? 401 : 500;
+    res.status(statusCode).json({ error: `API 키 오류: ${errMsg}` });
+  } catch (err) {
+    res.status(500).json({ error: `Google 서버에 연결할 수 없어요. (${err.message})` });
+  }
+});
+
+// ── 장소 정보 추출 ──
+router.post('/extract-info', upload.single('photo'), async (req, res) => {
+  const apiKey = req.headers['x-api-key'];
+  if (!apiKey) return res.status(400).json({ error: 'API 키가 필요합니다.' });
+  if (!req.file) return res.status(400).json({ error: '사진이 없습니다.' });
+
+  const category = req.body.category || 'cafe';
+
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: GEMINI_MODEL,
+      generationConfig: { responseMimeType: 'application/json' },
+    });
+
+    const fields = getExtractionFields(category);
+    const prompt = `이 이미지에서 ${getCategoryName(category)} 장소 정보를 추출하세요.\n아래 JSON 형식으로만 반환하세요:\n${fields}\n\n찾을 수 없는 항목은 "" (빈 문자열)로 표시하세요.`;
+    const content = [imagePart(req.file), prompt];
+    const result = await withFallback(
+      () => withRetry(() => model.generateContent(content)),
+      () => {
+        const fb = genAI.getGenerativeModel({ model: FALLBACK_MODEL, generationConfig: { responseMimeType: 'application/json' } });
+        return withRetry(() => fb.generateContent(content), 3, 2000);
+      }
+    );
+
+    const rawText = result.response.text().trim();
+    console.log('[extract-info] raw:', rawText.substring(0, 300));
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error(`JSON 추출 실패. 응답: ${rawText.substring(0, 200)}`);
+    res.json(JSON.parse(jsonMatch[0]));
+  } catch (err) {
+    console.error('[extract-info] error:', err.message);
+    res.status(500).json({ error: friendlyGeminiError(err) });
+  } finally {
+    cleanupFiles(req.file);
+  }
+});
+
+// ── 블로그 글 생성 ──
+router.post('/generate', upload.array('photos'), async (req, res) => {
+  const apiKey = req.headers['x-api-key'];
+  if (!apiKey) return res.status(400).json({ error: 'API 키가 필요합니다.' });
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+
+  const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
+  try {
+    const { category, rating, memo, customDirectives: reviewCustomDirectives, sectionNames: rawSectionNames, sectionCounts: rawSectionCounts, ...info } = req.body;
+    const openaiKey = req.headers['x-openai-key'] || '';
+    const photos = req.files || [];
+    const categoryName = getCategoryName(category);
+
+    // 섹션별 사진 그룹 재구성
+    const sectionNames = JSON.parse(rawSectionNames || '[]');
+    const sectionCounts = JSON.parse(rawSectionCounts || '[]');
+    const sectionGroups = [];
+    let photoOffset = 0;
+    sectionNames.forEach((name, i) => {
+      const count = sectionCounts[i] || 0;
+      sectionGroups.push({ name, photos: photos.slice(photoOffset, photoOffset + count) });
+      photoOffset += count;
+    });
+    if (sectionGroups.length === 0) sectionGroups.push({ name: '전체', photos });
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const descModel = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+    const blogModel = genAI.getGenerativeModel({ model: GEMINI_MODEL, systemInstruction: STYLE_GUIDE });
+
+    send({ type: 'status', message: `사진 ${photos.length}장 분석 중...` });
+
+    // 네이버 블로그 제목 검색 (사진 분석과 병렬 실행)
+    const naverQuery = [info.name, categoryName].filter(Boolean).join(' ');
+    const regionKeyword = (info.location || '').split(/\s+/).slice(0, 2).join(' ');
+    const naverHashtagQuery = [regionKeyword, categoryName].filter(Boolean).join(' ');
+    const [naverTitlesPromise, naverHashtagPromise] = [
+      fetchNaverBlogTitles(naverQuery),
+      fetchNaverBlogTitles(naverHashtagQuery),
+    ];
+
+    // 사진 설명 — 병렬 처리
+    const allPhotoTasks = [];
+    let globalIdx = 1;
+    for (const group of sectionGroups) {
+      for (const photo of group.photos) {
+        allPhotoTasks.push({ photo, group, index: globalIdx });
+        globalIdx++;
+      }
+    }
+
+    const photoGenreLabel = category === 'etc' && info.name
+      ? `기타(${info.name}) 리뷰`
+      : `${categoryName} 리뷰`;
+
+    const photoPrompt = (sectionName) => `당신은 카페/맛집/숙소 블로그 리뷰를 위한 사진 분석 전문가입니다.
+아래 사진을 보이는 것을 빠짐없이 꼼꼼하게 분석하세요.
+장르: ${photoGenreLabel} / 목차: ${sectionName}
+
+[분석 원칙]
+- 사진에 실제로 보이는 것만 작성하세요. 보이지 않는 내용은 절대 추측하거나 추가하지 마세요.
+- 최대한 세세하고 구체적으로 작성하세요. 글 작성자가 사진을 직접 보지 않아도 이 분석만으로 글을 쓸 수 있을 만큼 상세해야 합니다.
+
+[반드시 확인하고 기술할 항목]
+1. 주요 피사체: 무엇이 중심에 있는가? (음료·음식이면 이름, 색깔, 재료, 토핑, 담긴 그릇/컵 재질·모양까지)
+2. 색감·질감: 전체적인 색조, 재료의 질감, 표면 상태 (예: 크림이 얹혀있고 갈색 캐러멜 소스가 뿌려져 있음)
+3. 크기·양·비율: 음료/음식의 양, 그릇 크기, 사람 손이나 주변 사물 대비 크기감
+4. 공간·배경: 테이블 재질, 벽면 마감, 조명 형태와 밝기, 창문 유무, 좌석 구조, 인테리어 특징
+5. 텍스트·가격: 메뉴판·가격표·간판·영수증 등 글자가 보이면 최대한 정확히 읽어서 전부 기록
+6. 편의시설 단서: 콘센트, 와이파이 안내문, 주차 표지, 금연·애완동물 안내 등
+7. 사람·분위기: 혼잡도, 줄 서있는 모습, 직원 모습 등 보이는 경우에만
+8. 특이사항: 다른 항목에 해당하지 않지만 블로그에 언급할 만한 특징적인 요소
+
+[출력 형식]
+항목별로 나눠서 작성하되, 해당 없는 항목은 생략하세요. 설명만 작성하고 불필요한 서문·결론은 쓰지 마세요.`;
+
+    const gptClient = openaiKey ? new OpenAI({ apiKey: openaiKey }) : null;
+
+    let completed = 0;
+    const photoDescriptions = await withConcurrency(allPhotoTasks, 2, async ({ photo, group, index }) => {
+      console.log(`[photo ${index}/${allPhotoTasks.length}] 분석 시작 — 목차: ${group.name} / 파일크기: ${Math.round(photo.size/1024)}KB`);
+      try {
+        let desc;
+        if (gptClient) {
+          const base64 = fs.readFileSync(photo.path).toString('base64');
+          const gptResp = await withTimeout(() => gptClient.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: [
+              { type: 'image_url', image_url: { url: `data:${photo.mimetype || 'image/jpeg'};base64,${base64}`, detail: 'auto' } },
+              { type: 'text', text: photoPrompt(group.name) },
+            ]}],
+            max_tokens: 800,
+          }), 30000);
+          desc = gptResp.choices[0].message.content.trim();
+        } else {
+          const result = await withRetry(() => withTimeout(() => descModel.generateContent([
+            imagePart(photo),
+            photoPrompt(group.name),
+          ]), 30000));
+          desc = result.response.text().trim();
+        }
+        completed++;
+        console.log(`[photo ${index}/${allPhotoTasks.length}] 완료 (${completed}번째)`);
+        send({ type: 'progress', current: completed, total: allPhotoTasks.length });
+        return { index, section: group.name, desc };
+      } catch (err) {
+        completed++;
+        console.error(`[photo ${index}/${allPhotoTasks.length}] 실패 — ${err.message}`);
+        send({ type: 'progress', current: completed, total: allPhotoTasks.length });
+        return { index, section: group.name, desc: `${index}번째 사진` };
+      }
+    });
+
+    send({ type: 'status', message: '블로그 글 작성 중...' });
+
+    const ratingNum = parseFloat(rating) || 4.5;
+    const fieldInfo = buildCategoryInfoText(category, info);
+
+    const photoBlockBySection = sectionGroups.map(group => {
+      const groupPhotos = photoDescriptions.filter(p => p.section === group.name);
+      if (groupPhotos.length === 0) return null;
+      return `[${group.name}]\n${groupPhotos.map(p => `[사진${p.index}] ${p.desc}`).join('\n\n')}`;
+    }).filter(Boolean).join('\n\n---\n\n');
+
+    const memoBlock = memo ? `\n[사용자 지정 정보 — 반드시 포함, 반드시 분산 배치]\n${memo}\n\n★★ 배치 원칙 (총평 몰아넣기 절대 금지) ★★\n위 정보 항목 하나하나를 아래 순서로 처리하세요:\n1. 이 정보가 어느 사진 섹션의 내용과 가장 잘 어울리는가? → 해당 섹션 본문에 자연스럽게 녹여 쓰세요.\n2. 모든 섹션을 검토한 뒤에도 어울리는 섹션이 전혀 없는 항목만, 최후 수단으로 총평에 허용합니다.\n3. 총평은 방문 전체 소감 1~3문장만. 사용자 정보를 총평에 나열하는 것은 절대 금지.\n` : '';
+
+    const affiliateLink = category === 'accommodation' ? (info.affiliateLink?.trim() || '') : '';
+    const affiliateLinkBlock = affiliateLink
+      ? `\n[삽입할 예약/제휴 링크: ${affiliateLink}]\n위 링크를 글 안에 1회만, 독자가 "나도 예약하고 싶다"는 마음이 차오른 직후 — 객실·부대시설 후기 섹션 이후의 자연스러운 위치에 삽입하세요. 링크 위치는 [링크: ${affiliateLink}] 마커로 표시. 광고체 금지, 1인칭 경험담에 자연스럽게 녹일 것.\n`
+      : '';
+
+    const photoOrderNote = photos.length > 0
+      ? `\n[사진 순서 절대 준수]\n사진 마커는 [사진1]부터 [사진${photos.length}]까지 반드시 이 순서대로만 삽입하세요. 내용에 따라 순서를 바꾸는 것은 금지입니다.\n`
+      : '';
+
+    const sectionListBlock = sectionNames.length > 0
+      ? `\n[목차 구성 — 아래 이름을 본문 목차와 각 섹션 제목으로 반드시 그대로 사용하세요]\n${sectionNames.map((n, i) => `${i + 1}. ${n}`).join('\n')}\n`
+      : '';
+
+    const samplesSection = STYLE_SAMPLES
+      ? `[실제 블로그 샘플 — 아래 글들의 말투·어미·문장부호를 그대로 모방해서 써야 합니다]
+특히 다음 표현을 반드시 사용하세요:
+- "요렇게", "요런", "요기" 같은 구어체 지시어
+- "ㅎㅎ", "ㅋㅋ", "ㅠㅠ", "ㅎㅅㅎ" 같은 자음 감정 표현 (문장 끝에 자연스럽게)
+- "~합니당", "~했어용", "~조음" 같은 부드러운 구어체 어미 (20~30% 비율로)
+- 마침표(.)는 거의 쓰지 않고 "~!", "~", "..." 로 대체
+- 짧고 툭툭 끊기는 문장 흐름
+
+${STYLE_SAMPLES}
+
+---
+위 샘플의 문체와 말투를 그대로 유지하면서, 아래 정보로 블로그 글을 작성하세요.`
+      : '';
+
+    const [naverTitles, naverHashtagTitles] = await Promise.all([naverTitlesPromise, naverHashtagPromise]);
+    const naverBlock = naverTitles.length > 0
+      ? `[네이버 상위 노출 제목 샘플 — [TITLE] 작성 시 이 제목들의 키워드 패턴을 분석해 반영하세요]\n${naverTitles.slice(0, 15).join('\n')}\n`
+      : '';
+    const naverHashtagBlock = naverHashtagTitles.length > 0
+      ? `[네이버 해시태그 키워드 참고 — [HASHTAGS] 작성 시 아래 제목들에서 자주 등장하는 키워드를 #해시태그 형태로 적극 활용하세요. 검색량 있는 실제 키워드 위주로 선정하세요]\n${naverHashtagTitles.slice(0, 20).join('\n')}\n`
+      : '';
+
+    const reviewDirectivesBlock = reviewCustomDirectives?.trim()
+      ? `\n[사용자 지정 AI 작성 지침 — 아래 규칙을 반드시 따를 것]\n${reviewCustomDirectives.trim()}\n`
+      : '';
+
+    const prompt = `${samplesSection}
+
+${fieldInfo}
+
+별점: ${ratingNum}점 / 5점
+${memoBlock}${affiliateLinkBlock}${reviewDirectivesBlock}${sectionListBlock}${naverBlock}${naverHashtagBlock}
+[사진 분석 결과 — 총 ${photos.length}장, 목차별 분류 / 각 목차의 사진을 해당 섹션 본문에 순서대로 배치]
+★★★ 사진 본문 작성 절대 규칙 ★★★
+- 각 [사진N] 아래 본문은 반드시 아래 해당 사진의 분석 결과에 적힌 내용만을 바탕으로 작성하세요.
+- 분석 결과에 없는 내용(메뉴, 인테리어, 분위기, 가격 등)을 상상하거나 창작하는 것은 절대 금지입니다.
+- 분석 결과에 A라고 적혀 있으면 A에 대해서만 쓰고, B·C는 언급하지 마세요.
+- 분석 결과가 짧더라도 없는 내용을 늘려 쓰지 말고 분석 결과 범위 안에서만 작성하세요.
+${photoBlockBySection}
+${photoOrderNote}
+`;
+
+    const blogResult = await withFallback(
+      () => withRetry(
+        () => withTimeout(() => blogModel.generateContent(prompt), 120000),
+        3, 3000,
+        (attempt) => send({ type: 'status', message: `AI 서버가 바빠서 재시도 중... (${attempt}/3)` })
+      ),
+      () => {
+        send({ type: 'status', message: 'AI 서버 과부하 — 대체 모델로 전환 중...' });
+        const fbModel = genAI.getGenerativeModel({ model: FALLBACK_MODEL, systemInstruction: STYLE_GUIDE });
+        return withRetry(
+          () => withTimeout(() => fbModel.generateContent(prompt), 120000),
+          2, 2000,
+          (attempt) => send({ type: 'status', message: `대체 모델 재시도 중... (${attempt}/2)` })
+        );
+      }
+    );
+    let parsed = parseBlogResponse(blogResult.response.text());
+
+    const violations = validateBlogOutput(parsed, photos.length);
+    if (violations.length > 0) {
+      console.log('[validate] 위반 감지:', violations);
+      send({ type: 'status', message: '규칙 검수 중 — 자동 수정...' });
+      const retryPrompt = `[규칙 위반 수정]\n다음 항목이 지켜지지 않았습니다:\n${violations.map((v) => `- ${v}`).join('\n')}\n\n위 항목만 고쳐서 전체 글을 다시 동일한 [TITLE][BODY][HASHTAGS] 형식으로 출력하세요.\n\n---\n\n${prompt}`;
+      const retryResult = await withFallback(
+        () => withRetry(() => withTimeout(() => blogModel.generateContent(retryPrompt), 120000), 2, 3000),
+        () => {
+          const fbModel = genAI.getGenerativeModel({ model: FALLBACK_MODEL, systemInstruction: STYLE_GUIDE });
+          return withRetry(() => withTimeout(() => fbModel.generateContent(retryPrompt), 120000), 2, 2000);
+        }
+      );
+      parsed = parseBlogResponse(retryResult.response.text());
+    }
+
+    if (parsed.body) parsed.body = sanitizeFormattingHtml(parsed.body);
+    send({ type: 'complete', result: parsed });
+    res.end();
+  } catch (err) {
+    console.error('generate error:', err);
+    send({ type: 'error', message: friendlyGeminiError(err) });
+    res.end();
+  } finally {
+    cleanupFiles(req.files);
+  }
+});
+
+module.exports = router;
