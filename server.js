@@ -1,18 +1,17 @@
 require('dotenv').config();
 const express = require('express');
-const multer = require('multer');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { OpenAI } = require('openai');
 const path = require('path');
 const fs = require('fs');
-const os = require('os');
-
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-const FALLBACK_MODEL = 'gemini-2.5-flash-lite';
+const { GEMINI_MODEL, FALLBACK_MODEL, withTimeout, isRetryable, withRetry, withFallback, friendlyGeminiError } = require('./lib/ai');
+const { upload, imagePart, cleanupFiles } = require('./lib/upload');
+const { fetchNaverBlogTitles } = require('./lib/naver');
+const { sanitizeFormattingHtml, stripTitleFormatting, parseTitles } = require('./lib/text');
 
 let STYLE_SAMPLES = '';
 try {
-  const raw = fs.readFileSync(path.join(__dirname, 'style-samples.txt'), 'utf-8').trim();
+  const raw = fs.readFileSync(path.join(__dirname, 'prompts/style-samples.txt'), 'utf-8').trim();
   // 안내 헤더와 빈 예시 placeholder는 제외하고 실제 글만 추출
   const blocks = raw.split('=====').map(b => b.trim()).filter(b => b && !b.startsWith('아래 글들을') && !b.startsWith('(여기에'));
   if (blocks.length > 0) STYLE_SAMPLES = blocks.join('\n\n=====\n\n');
@@ -22,13 +21,6 @@ try {
 console.log(`[config] Gemini 모델: ${GEMINI_MODEL}`);
 
 const app = express();
-const upload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, os.tmpdir()),
-    filename: (_req, _file, cb) => cb(null, `upload-${Date.now()}-${Math.random().toString(36).slice(2)}`),
-  }),
-  limits: { fileSize: 10 * 1024 * 1024, files: 100 },
-});
 
 app.use(express.json());
 
@@ -41,7 +33,7 @@ app.use((req, _res, next) => {
 // ✏️  정보성 블로그 가이드: info-blog-guide.md
 let STYLE_GUIDE = '';
 try {
-  STYLE_GUIDE = fs.readFileSync(path.join(__dirname, 'review-blog-guide.md'), 'utf-8').trim();
+  STYLE_GUIDE = fs.readFileSync(path.join(__dirname, 'prompts/review-blog-guide.md'), 'utf-8').trim();
 } catch {
   // 파일 없으면 무시
 }
@@ -97,15 +89,6 @@ function generateStars(rating) {
   const half = n % 1 >= 0.5 ? 1 : 0;
   const empty = 5 - full - half;
   return '★'.repeat(full) + (half ? '⭐' : '') + '☆'.repeat(empty);
-}
-
-function sanitizeFormattingHtml(text) {
-  return text.replace(/<([^>]+)>/g, (match) => {
-    const inner = match.slice(1, -1).trim();
-    if (/^\/?(b|u)$/i.test(inner)) return match;
-    if (/^b\s/i.test(inner)) return match;
-    return '';
-  });
 }
 
 function validateInfoBlogOutput(body, affiliateLinks, contentType, verifiedPrices) {
@@ -165,25 +148,6 @@ function validateInfoBlogOutput(body, affiliateLinks, contentType, verifiedPrice
   return violations;
 }
 
-function stripTitleFormatting(t) {
-  if (!t) return t;
-  return t
-    .replace(/<[^>]+>/g, '')
-    .replace(/\*\*(.+?)\*\*/g, '$1')
-    .replace(/__(.+?)__/g, '$1')
-    .replace(/\*(.+?)\*/g, '$1')
-    .replace(/_(.+?)_/g, '$1')
-    .replace(/~~(.+?)~~/g, '$1')
-    .trim();
-}
-
-function parseTitles(titleBlock) {
-  if (!titleBlock) return [];
-  const numbered = [...titleBlock.matchAll(/^\d+\.\s*(.+)$/gm)].map(m => stripTitleFormatting(m[1].trim())).filter(Boolean);
-  if (numbered.length > 0) return numbered;
-  return [stripTitleFormatting(titleBlock.trim())].filter(Boolean);
-}
-
 function parseBlogResponse(text) {
   const extract = (tag) => {
     const re = new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`);
@@ -239,77 +203,6 @@ function validateBlogOutput(parsed, photoCount) {
   return violations;
 }
 
-function imagePart(file) {
-  const data = fs.readFileSync(file.path).toString('base64');
-  return { inlineData: { data, mimeType: file.mimetype || 'image/jpeg' } };
-}
-
-function cleanupFiles(files) {
-  const list = Array.isArray(files) ? files : files ? [files] : [];
-  for (const f of list) {
-    try { fs.unlinkSync(f.path); } catch {}
-  }
-}
-
-async function fetchNaverBlogTitles(query) {
-  const clientId     = process.env.NAVER_CLIENT_ID;
-  const clientSecret = process.env.NAVER_CLIENT_SECRET;
-  if (!clientId || !clientSecret || !query?.trim()) return [];
-  try {
-    const url = `https://openapi.naver.com/v1/search/blog?query=${encodeURIComponent(query.trim())}&display=20&sort=sim`;
-    const resp = await fetch(url, {
-      headers: { 'X-Naver-Client-Id': clientId, 'X-Naver-Client-Secret': clientSecret },
-    });
-    if (!resp.ok) return [];
-    const data = await resp.json();
-    return (data.items || []).map(item => item.title.replace(/<[^>]+>/g, '').trim()).filter(Boolean);
-  } catch {
-    return [];
-  }
-}
-
-function withTimeout(fn, ms) {
-  return Promise.race([
-    fn(),
-    new Promise((_, reject) => setTimeout(() => reject(new Error(`timeout_${ms}`)), ms)),
-  ]);
-}
-
-function isRetryable(err) {
-  const msg = err?.message || String(err);
-  return msg.includes('503')
-    || msg.toLowerCase().includes('high demand')
-    || msg.toLowerCase().includes('overloaded')
-    || msg.toLowerCase().includes('service unavailable')
-    || msg.startsWith('timeout_');
-}
-
-async function withRetry(fn, maxRetries = 5, baseDelayMs = 3000, onRetry) {
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (err) {
-      if (!isRetryable(err) || attempt === maxRetries) throw err;
-      const delay = Math.min(baseDelayMs * Math.pow(2, attempt), 30000);
-      console.log(`[retry] ${attempt + 1}/${maxRetries} — ${delay}ms 후 재시도`);
-      if (onRetry) onRetry(attempt + 1);
-      await new Promise(r => setTimeout(r, delay));
-    }
-  }
-}
-
-async function withFallback(primaryFn, fallbackFn) {
-  try {
-    return await primaryFn();
-  } catch (err) {
-    if (isRetryable(err) && fallbackFn) {
-      console.log(`[fallback] 과부하 지속 → ${FALLBACK_MODEL} 전환`);
-      return await fallbackFn();
-    }
-    throw err;
-  }
-}
-
 async function withConcurrency(tasks, concurrency, fn) {
   const results = new Array(tasks.length);
   let next = 0;
@@ -321,26 +214,6 @@ async function withConcurrency(tasks, concurrency, fn) {
   }
   await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, worker));
   return results;
-}
-
-function friendlyGeminiError(err) {
-  const msg = err?.message || String(err);
-  if (msg.includes('503') || msg.toLowerCase().includes('high demand') || msg.toLowerCase().includes('overloaded') || msg.toLowerCase().includes('service unavailable')) {
-    return `지금 요청이 많아서 AI 서버가 잠시 바빠요. 잠깐 기다렸다가 다시 시도해주세요.`;
-  }
-  if (msg.includes('429') || msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('too many requests')) {
-    return `Gemini API 쿼터가 초과되었습니다. Google AI Studio에서 사용량과 결제를 확인해주세요. (현재 모델: ${GEMINI_MODEL})`;
-  }
-  if (msg.includes('404') || msg.toLowerCase().includes('not found')) {
-    return `모델명이 잘못되었거나 사용할 수 없는 모델입니다. .env 파일의 GEMINI_MODEL 값을 확인해주세요. (현재 모델: ${GEMINI_MODEL})`;
-  }
-  if (msg.includes('401') || msg.includes('403') || msg.toLowerCase().includes('api key') || msg.toLowerCase().includes('permission')) {
-    return `API 키가 유효하지 않거나 권한이 없습니다.`;
-  }
-  if (msg.startsWith('timeout_')) {
-    return `AI가 응답하는 데 시간이 오래 걸리고 있어요. 사진이 많을수록 시간이 더 걸릴 수 있어요. 잠시 후 다시 시도해주세요.`;
-  }
-  return msg.substring(0, 200);
 }
 
 // ── API 키 검증 ──
@@ -573,7 +446,7 @@ ${researched}
 // ── 정보성 블로그 생성 ──
 let INFO_BLOG_GUIDE = '';
 try {
-  INFO_BLOG_GUIDE = fs.readFileSync(path.join(__dirname, 'info-blog-guide.md'), 'utf-8').trim();
+  INFO_BLOG_GUIDE = fs.readFileSync(path.join(__dirname, 'prompts/info-blog-guide.md'), 'utf-8').trim();
 } catch {
   // 파일 없으면 무시
 }
