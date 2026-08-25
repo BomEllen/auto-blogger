@@ -220,7 +220,7 @@ ${researched}
         return withRetry(() => withTimeout(() => fb.generateContent(blogPrompt), 40000), 3, 2000);
       }
     );
-    res.json({ result: blogResult.response.text().trim() });
+    res.json({ result: sanitizeFormattingHtml(blogResult.response.text().trim()) });
   } catch (err) {
     res.status(500).json({ error: friendlyGeminiError(err) });
   }
