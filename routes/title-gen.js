@@ -6,6 +6,7 @@ const { OpenAI } = require('openai');
 const { GEMINI_MODEL, FALLBACK_MODEL, withTimeout, withRetry, withFallback, friendlyGeminiError } = require('../lib/ai');
 const { upload, imagePart, cleanupFiles } = require('../lib/upload');
 const { fetchNaverBlogTitles } = require('../lib/naver');
+const { sanitizeFormattingHtml } = require('../lib/text');
 
 const router = express.Router();
 
@@ -138,7 +139,7 @@ ${instruction.trim()}
         return withRetry(() => withTimeout(() => fb.generateContent(prompt), 30000), 3, 2000);
       }
     );
-    res.json({ result: result.response.text().trim() });
+    res.json({ result: sanitizeFormattingHtml(result.response.text().trim()) });
   } catch (err) {
     res.status(500).json({ error: friendlyGeminiError(err) });
   }

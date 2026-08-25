@@ -1,4 +1,4 @@
-import { copyText } from '../utils.js';
+import { copyText, copyHtml } from '../utils.js';
 
 export function getHTML() {
   return `
@@ -126,10 +126,13 @@ export function getHTML() {
         <div class="tg-result-card hidden" id="impResultCard">
           <div class="tg-result-header">
             <h2 class="tg-result-title">보완된 섹션</h2>
-            <button class="btn-copy" id="impCopyBtn">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.688a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" /></svg>
-              복사
-            </button>
+            <div class="result-actions">
+              <button class="btn-copy" id="impCopyBtn">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.688a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" /></svg>
+                복사
+              </button>
+              <button class="btn-copy btn-copy-rich" id="impCopyRichBtn">서식 포함 복사</button>
+            </div>
           </div>
           <div class="tg-result-box" id="impResultBox" contenteditable="true" spellcheck="false"></div>
           <p class="tg-result-hint">클릭해서 직접 수정할 수 있어요</p>
@@ -233,7 +236,15 @@ export function mount() {
 
   /* ── 공통 헬퍼 ── */
   function showError(el, msg) { el.textContent = msg; el.classList.remove('hidden'); }
-  function makeHandler({ inputEl, countEl, generateBtn, loadingEl, errorEl, resultCard, resultBox, copyBtn, endpoint, buildFormData, buildBody }) {
+  // 서식 HTML(<b>, <u> 등)이 섞인 텍스트를 렌더링용 HTML로 변환 — 태그는 그대로 두고 순수 텍스트만 escape+개행 처리
+  function buildRichHtml(text) {
+    const parts = text.split(/(<\/?\w[^>]*>)/);
+    return parts.map(part => {
+      if (/^<\/?\w/.test(part)) return part;
+      return part.replace(/&/g, '&amp;').replace(/\n/g, '<br>');
+    }).join('');
+  }
+  function makeHandler({ inputEl, countEl, generateBtn, loadingEl, errorEl, resultCard, resultBox, copyBtn, copyRichBtn, endpoint, buildFormData, buildBody, rich }) {
     if (countEl && inputEl) {
       inputEl.addEventListener('input', () => { countEl.textContent = inputEl.value.length.toLocaleString(); });
     }
@@ -255,7 +266,9 @@ export function mount() {
         }
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || '생성에 실패했어요.');
-        resultBox.textContent = data.result ?? data.title ?? data.hashtags ?? data.description ?? '';
+        const text = data.result ?? data.title ?? data.hashtags ?? data.description ?? '';
+        if (rich) resultBox.innerHTML = buildRichHtml(text);
+        else resultBox.textContent = text;
         resultCard.classList.remove('hidden');
       } catch (err) {
         showError(errorEl, err.message);
@@ -264,7 +277,12 @@ export function mount() {
         generateBtn.disabled = false;
       }
     });
-    copyBtn.addEventListener('click', () => copyText(resultBox.textContent, '내용'));
+    if (rich) {
+      copyBtn.addEventListener('click', () => copyText(resultBox.innerText, '내용'));
+      copyRichBtn?.addEventListener('click', () => copyHtml(resultBox.innerHTML, resultBox.innerText, '서식 포함 내용'));
+    } else {
+      copyBtn.addEventListener('click', () => copyText(resultBox.textContent, '내용'));
+    }
   }
 
   /* ── ① 제목 생성 ── */
@@ -308,7 +326,8 @@ export function mount() {
     generateBtn: document.getElementById('impGenerateBtn'),
     loadingEl: document.getElementById('impLoading'), errorEl: document.getElementById('impError'),
     resultCard: document.getElementById('impResultCard'), resultBox: document.getElementById('impResultBox'),
-    copyBtn: document.getElementById('impCopyBtn'),
+    copyBtn: document.getElementById('impCopyBtn'), copyRichBtn: document.getElementById('impCopyRichBtn'),
+    rich: true,
     endpoint: '/api/improve-section',
     buildBody: () => {
       const body = impBodyInput.value.trim();
