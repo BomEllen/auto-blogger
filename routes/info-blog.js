@@ -65,6 +65,39 @@ function validateInfoBlogOutput(body, affiliateLinks, contentType, verifiedPrice
   return violations;
 }
 
+// 재생성 없이 결과에만 표시하는 소프트 경고 (하드 위반과 무관하게 최종 본문에 대해 1회만 검사)
+function checkInfoBlogWarnings(body, affiliateLinks) {
+  const warnings = [];
+
+  // ②(결론) 구간 = 본문 시작부터 첫 ★⡱ 등장 전까지
+  const firstBaitIdx = body.indexOf('★⡱');
+  const conclusionSection = firstBaitIdx === -1 ? body : body.slice(0, firstBaitIdx);
+
+  if (affiliateLinks.length > 0 && !conclusionSection.includes('[링크:')) {
+    warnings.push('② 결론 블록에 [링크:]가 없음 — 제휴 링크 입력이 있는데 상단 결론 링크가 빠졌을 수 있어요');
+  }
+
+  // 떡밥 지연 표현 과다 사용
+  const deferMatches = body.match(/아래에서|뒤에서|밑에서/g) || [];
+  if (deferMatches.length >= 6) {
+    warnings.push(`"아래에서/뒤에서/밑에서" 류 지연 표현이 ${deferMatches.length}회 등장 — 떡밥 과다일 수 있어요`);
+  }
+
+  // 각 [링크: 앞 3줄에 행동 표현이 없는 경우
+  const linkRegex = /\[링크:/g;
+  let m;
+  while ((m = linkRegex.exec(body)) !== null) {
+    const before = body.slice(Math.max(0, m.index - 200), m.index);
+    const lastLines = before.split('\n').filter(Boolean).slice(-3).join('\n');
+    if (!/넣고|눌러|켜|골라|선택|바꿔/.test(lastLines)) {
+      const linkPreview = body.slice(m.index, m.index + 30).split('\n')[0];
+      warnings.push(`"${linkPreview}..." 앞 3줄에 행동 표현(넣고/눌러/켜/골라/선택/바꿔)이 없어요`);
+    }
+  }
+
+  return warnings;
+}
+
 let INFO_BLOG_GUIDE = '';
 try {
   INFO_BLOG_GUIDE = fs.readFileSync(path.join(__dirname, '../prompts/info-blog-guide.md'), 'utf-8').trim();
@@ -156,8 +189,13 @@ ${searchTopics.trim()}
       ? `\n[확인된 가격·별점]\n${verifiedPrices.trim()}\n위 값을 비교표의 해당 셀에 채우고, 가격 행 아래에 "(YYYY년 M월 기준)" 확인 시점을 표기한다. 입력이 없는 항목은 "(확인 후 기입)"으로 남긴다. 어떤 경우에도 가격·별점·리뷰수를 추정하거나 지어내지 않는다.\n`
       : '';
 
+    const hasConclusionLink = affiliateLinks.some(l => l.anchor === '결론');
+    const conclusionFallbackNote = (affiliateLinks.length > 0 && !hasConclusionLink)
+      ? `'결론' 배치로 지정된 링크가 없으므로, 위 링크 중 결론(②) 방향과 가장 잘 맞는 사이트를 하나 골라 ②에 사용할 것.\n`
+      : '';
+
     const affiliateBlock = affiliateLinks.length > 0
-      ? `\n[제휴 배치도 — 아래 링크를 지정된 위치에 삽입할 것. 앵커 텍스트는 열마다 다르게]\n${affiliateLinks.map(l => `사이트: ${l.site || '미입력'} | URL: ${l.url} | 배치: ${l.anchor || '표내부'} | 레이블: ${l.label || ''} | 이유: ${l.reason || '없음'}`).join('\n')}\n각 링크의 '이유'가 있으면 그것을 근거로 "왜 내 링크에서 사야 하는지"를 쓴다. '이유'가 없으면 장단점 비교 방식으로 대체한다. 특가·할인·쿠폰·최저가는 입력값에 없으면 절대 지어내지 않는다.\n`
+      ? `\n[제휴 배치도 — 아래 링크를 지정된 위치에 삽입할 것. 앵커 텍스트는 열마다 다르게]\n${affiliateLinks.map(l => `사이트: ${l.site || '미입력'} | URL: ${l.url} | 배치: ${l.anchor || '표내부'} | 레이블: ${l.label || ''} | 이유: ${l.reason || '없음'}`).join('\n')}\n각 링크의 '이유'가 있으면 그것을 근거로 "왜 내 링크에서 사야 하는지"를 쓴다. '이유'가 없으면 장단점 비교 방식으로 대체한다. 특가·할인·쿠폰·최저가는 입력값에 없으면 절대 지어내지 않는다.\n${conclusionFallbackNote}`
       : '\n- 삽입할 제휴 링크: 없음\n';
 
     const readerProfileBlock = readerProfile?.trim()
@@ -228,12 +266,15 @@ ${emphasizeBlock}${directivesBlock}${comparisonBlock}${verifiedPricesBlock}${aff
 
     body = sanitizeFormattingHtml(body);
 
+    const warnings = checkInfoBlogWarnings(body, affiliateLinks);
+
     const titles = parseTitles(title);
     res.json({
       title: titles[0] || title,
       titles,
       body,
       ...(linkSuggestion && { linkSuggestion }),
+      ...(warnings.length > 0 && { warnings }),
     });
   } catch (err) {
     res.status(500).json({ error: friendlyGeminiError(err) });

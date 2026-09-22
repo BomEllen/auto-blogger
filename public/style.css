@@ -618,6 +618,13 @@ body {
   font-size: 14px; color: var(--text); line-height: 1.8;
   white-space: pre-wrap; word-break: break-word;
 }
+.ib-warnings-list {
+  margin: 0; padding: 14px 16px 14px 32px; list-style: disc;
+  border: 1px dashed #d99a2b; border-radius: var(--radius-sm);
+  background: rgba(217,154,43,0.08);
+  font-size: 13px; color: var(--text); line-height: 1.7;
+}
+.ib-warnings-list li + li { margin-top: 4px; }
 .photo-marker {
   display: inline-block; padding: 2px 8px;
   background: rgba(197,232,32,0.15); border: 1px dashed rgba(0,0,0,0.2);

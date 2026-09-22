@@ -298,6 +298,14 @@ export function getHTML() {
           <div class="ib-link-suggestion-box" id="ibLinkSuggestionOutput"></div>
         </div>
 
+        <div class="result-section hidden" id="ibWarningsSection">
+          <div class="result-label-row">
+            <span class="result-label">검증 경고</span>
+            <span class="result-hint">참고용이며 생성을 막지는 않아요</span>
+          </div>
+          <ul class="ib-warnings-list" id="ibWarningsList"></ul>
+        </div>
+
       </section>
 
     </div>
@@ -337,6 +345,7 @@ export function mount() {
       <input type="text" class="ib-link-url ib-input-sm" placeholder="URL" value="${link.url || ''}" />
       <select class="ib-link-anchor ib-select-sm">
         <option value="표내부"${link.anchor === '표내부' ? ' selected' : ''}>표 내부</option>
+        <option value="결론"${link.anchor === '결론' ? ' selected' : ''}>상단 결론 (②)</option>
         <option value="A"${link.anchor === 'A' ? ' selected' : ''}>A위치 (경험 교차 후)</option>
         <option value="B"${link.anchor === 'B' ? ' selected' : ''}>B위치 (비교표 뒤)</option>
         <option value="C"${link.anchor === 'C' ? ' selected' : ''}>C위치 (마무리 전)</option>
@@ -447,6 +456,8 @@ export function mount() {
   const ibBodyOutput = document.getElementById('ibBodyOutput');
   const ibLinkSuggestionSection = document.getElementById('ibLinkSuggestionSection');
   const ibLinkSuggestionOutput = document.getElementById('ibLinkSuggestionOutput');
+  const ibWarningsSection = document.getElementById('ibWarningsSection');
+  const ibWarningsList = document.getElementById('ibWarningsList');
 
   if (apiKey) {
     ibApiConnected.classList.remove('hidden');
@@ -565,6 +576,13 @@ export function mount() {
         ibLinkSuggestionSection.classList.remove('hidden');
       } else {
         ibLinkSuggestionSection.classList.add('hidden');
+      }
+
+      if (data.warnings && data.warnings.length > 0) {
+        ibWarningsList.innerHTML = data.warnings.map(w => `<li>${w}</li>`).join('');
+        ibWarningsSection.classList.remove('hidden');
+      } else {
+        ibWarningsSection.classList.add('hidden');
       }
 
       ibResultCard.classList.remove('hidden');
