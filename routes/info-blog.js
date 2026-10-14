@@ -111,7 +111,6 @@ try {
 let INFO_BLOG_GUIDE = '';
 try {
   INFO_BLOG_GUIDE = fs.readFileSync(path.join(__dirname, '../prompts/info-blog-guide.md'), 'utf-8').trim();
-  INFO_BLOG_GUIDE = INFO_BLOG_GUIDE.replace('{{INFO_BLOG_EXAMPLES}}', INFO_BLOG_EXAMPLES);
 } catch {
   // 파일 없으면 무시
 }
@@ -213,7 +212,23 @@ ${searchTopics.trim()}
       ? `[독자 관통선 — 글 전체에서 이 독자 한 명을 ①도입·④경험·⑤결론·링크 직전 4자리에서 일관되게 호출할 것]\n${readerProfile.trim()}\n\n`
       : '';
 
-    const prompt = `${readerProfileBlock}[입력값]
+    const examplesSection = INFO_BLOG_EXAMPLES
+      ? `[실제 작성된 정보성 블로그 글 — 아래 글들의 말투·문장 호흡·줄바꿈 리듬·이모지 사용 느낌을 그대로 모방해서 써야 합니다]
+특히 다음을 반영하세요:
+- 1인칭 경험담 어투, 구어체 어미(~하더라구요, ~거든요, ~했어요ㅎㅎ 등)를 적극 사용
+- 느낌표·말줄임표(...)를 자연스럽게 섞고, 온점은 1/3 정도 의도적으로 생략
+- 감정을 표현하는 문장에는 예시처럼 이모지·카오모지를 자연스럽게 섞어도 됩니다 (글 전체 10개 내외, 수치·가격 설명 문장에는 넣지 않음)
+- 단, 아래 글에 보이는 #, ##, **, ✔ 같은 마크다운·불릿 기호는 원문 자체의 서식일 뿐이니 절대 그대로 출력하지 말고, 말투와 호흡 느낌만 참고하세요 — 소제목·목록은 시스템 지침의 태그 없는 줄바꿈 형식을 따르세요
+
+${INFO_BLOG_EXAMPLES}
+
+---
+위 예시 글의 문체와 말투를 그대로 유지하면서, 아래 조건에 맞는 정보성 블로그 글을 작성하세요.
+
+`
+      : '';
+
+    const prompt = `${examplesSection}${readerProfileBlock}[입력값]
 - 핵심 키워드: ${mainKeyword.trim()}
 - 보조 키워드: ${subKeywords?.trim() || '없음'}
 - 글 유형: ${contentType?.trim() || '정보형'}

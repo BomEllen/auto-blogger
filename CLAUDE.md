@@ -16,7 +16,7 @@
 |---|---|---|---|
 | 리뷰 블로그 (`찍기만 해!` 메인) | `public/pages/HomePage.js` | `routes/review-blog.js` (`/api/verify-key`, `/api/extract-info`, `/api/generate`) | `prompts/review-blog-guide.md`, `prompts/style-samples.txt` |
 | 제목생성/유틸 | `public/pages/TitleGenPage.js` | `routes/title-gen.js` (`/api/generate-title`, `/api/generate-hashtags`, `/api/improve-section`, `/api/describe-photo`, `/api/research-blog`) | `prompts/review-blog-guide.md` (review-blog와 각자 독립적으로 로드 — 서로 참조하지 않음) |
-| 정보성 블로그 | `public/pages/InfoBlogPage.js` | `routes/info-blog.js` (`/api/generate-info-blog`) | `prompts/info-blog-guide.md`, `prompts/info-blog-examples.md` (예시 글, `=====`로 구분, `{{INFO_BLOG_EXAMPLES}}` 자리표시자로 가이드에 주입됨) |
+| 정보성 블로그 | `public/pages/InfoBlogPage.js` | `routes/info-blog.js` (`/api/generate-info-blog`) | `prompts/info-blog-guide.md`, `prompts/info-blog-examples.md` (예시 글, `=====`로 구분. review-blog의 `style-samples.txt`와 동일 패턴으로 가이드가 아니라 매 요청 프롬프트 맨 앞에 직접 주입됨) |
 | 이미지 생성/편집 | `public/pages/ImageGenPage.js` | `routes/image-gen.js` (`/api/generate-image`, `/api/edit-image`) | 없음 (코드 내 상수, OpenAI `gpt-image-1`) |
 | 퇴고 학습 (AI 원본 ↔ 실제 올린 최종본 분석) | `public/pages/RevisionPage.js` (목록·분석·정리·내보내기/가져오기), 저장 UI는 `InfoBlogPage.js`/`HomePage.js` 결과 화면 하단 | `routes/revision.js` (`/api/revisions` CRUD, `/api/revisions/analyze`, `/api/revisions/purge`, `/api/revisions/export`, `/api/revisions/import`) | `prompts/revision-analysis-guide.md` |
 
