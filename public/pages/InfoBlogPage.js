@@ -1,4 +1,4 @@
-import { copyText, copyHtml } from '../utils.js';
+import { copyText, copyHtml, showAlert } from '../utils.js';
 
 const FIELD_MAP = {
   '핵심 키워드': 'mainKeyword',
@@ -306,6 +306,19 @@ export function getHTML() {
           <ul class="ib-warnings-list" id="ibWarningsList"></ul>
         </div>
 
+        <div class="result-section ib-learning-section" id="ibLearningSection">
+          <div class="result-label-row">
+            <span class="result-label">퇴고 학습용 저장</span>
+            <span class="result-hint">네이버에 실제로 올린 최종본을 붙여넣으면 가이드 개선에 쓰여요 (선택)</span>
+          </div>
+          <textarea id="ibFinalDraft" class="ib-textarea" rows="8" placeholder="실제로 올린 최종 본문을 통째로 붙여넣어주세요"></textarea>
+          <input type="text" id="ibRevisionMemo" class="ib-input" placeholder="수정 메모 한 줄 (예: 링크 직전 문장을 더 짧게 고침)" />
+          <div class="ib-learning-actions">
+            <button type="button" class="btn-ib-save-learning" id="ibSaveLearningBtn">학습용으로 저장</button>
+            <span class="ib-learning-result hidden" id="ibLearningResult"></span>
+          </div>
+        </div>
+
       </section>
 
     </div>
@@ -458,6 +471,12 @@ export function mount() {
   const ibLinkSuggestionOutput = document.getElementById('ibLinkSuggestionOutput');
   const ibWarningsSection = document.getElementById('ibWarningsSection');
   const ibWarningsList = document.getElementById('ibWarningsList');
+  const ibFinalDraft = document.getElementById('ibFinalDraft');
+  const ibRevisionMemo = document.getElementById('ibRevisionMemo');
+  const ibSaveLearningBtn = document.getElementById('ibSaveLearningBtn');
+  const ibLearningResult = document.getElementById('ibLearningResult');
+
+  let lastGenerated = null; // { title, body, mainKeyword, contentType } — AI 원본 그대로, 사용자 편집 영향 안 받음
 
   if (apiKey) {
     ibApiConnected.classList.remove('hidden');
@@ -578,6 +597,17 @@ export function mount() {
         ibLinkSuggestionSection.classList.add('hidden');
       }
 
+      lastGenerated = {
+        title: (data.titles && data.titles[0]) || data.title || '',
+        body: data.body,
+        mainKeyword,
+        contentType: getContentType(),
+      };
+      ibFinalDraft.value = '';
+      ibRevisionMemo.value = '';
+      ibLearningResult.classList.add('hidden');
+      ibSaveLearningBtn.disabled = false;
+
       if (data.warnings && data.warnings.length > 0) {
         ibWarningsList.innerHTML = data.warnings.map(w => `<li>${w}</li>`).join('');
         ibWarningsSection.classList.remove('hidden');
@@ -617,6 +647,35 @@ export function mount() {
   document.getElementById('ibCopyAll').addEventListener('click', () => {
     const all = `${ibTitleOutput.textContent}\n\n${getBodyPlainText()}`;
     copyText(all, '전체');
+  });
+
+  ibSaveLearningBtn.addEventListener('click', async () => {
+    const final = ibFinalDraft.value.trim();
+    if (!final) { await showAlert('실제로 올린 최종본을 붙여넣어주세요.'); return; }
+    if (!lastGenerated?.body) { await showAlert('저장할 생성 결과가 없어요.'); return; }
+
+    ibSaveLearningBtn.disabled = true;
+    try {
+      const res = await fetch('/api/revisions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          blogType: 'info',
+          title: lastGenerated.title,
+          subtitle: lastGenerated.mainKeyword,
+          memo: ibRevisionMemo.value.trim(),
+          original: lastGenerated.body,
+          final,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '저장에 실패했어요.');
+      ibLearningResult.textContent = '저장됐어요. 퇴고 학습 페이지에서 확인할 수 있어요.';
+      ibLearningResult.classList.remove('hidden');
+    } catch (err) {
+      await showAlert(err.message);
+      ibSaveLearningBtn.disabled = false;
+    }
   });
 
   const handleKeydown = (e) => {

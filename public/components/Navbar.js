@@ -11,6 +11,7 @@ export const Navbar = {
           <a href="#/info-blog" class="nav-link" data-page="info-blog">정보성 블로그 작성</a>
           <a href="#/title-gen" class="nav-link" data-page="title-gen">따로 생성</a>
           <a href="#/image-gen" class="nav-link" data-page="image-gen">이미지 생성</a>
+          <a href="#/revision" class="nav-link" data-page="revision">퇴고 학습</a>
         </div>
       </div>
     `;

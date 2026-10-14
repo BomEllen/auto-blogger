@@ -3,6 +3,7 @@ import { getHTML as homeHTML,  mount as mountHome  } from './pages/HomePage.js';
 import { getHTML as infoHTML,  mount as mountInfo  } from './pages/InfoBlogPage.js';
 import { getHTML as titleHTML, mount as mountTitle } from './pages/TitleGenPage.js';
 import { getHTML as imageHTML, mount as mountImage } from './pages/ImageGenPage.js';
+import { getHTML as revisionHTML, mount as mountRevision } from './pages/RevisionPage.js';
 
 const navRoot = document.getElementById('navRoot');
 const pageRoot = document.getElementById('pageRoot');
@@ -12,6 +13,7 @@ const routes = {
   '/info-blog': { html: infoHTML,  mount: mountInfo,  nav: 'info-blog' },
   '/title-gen': { html: titleHTML, mount: mountTitle, nav: 'title-gen' },
   '/image-gen': { html: imageHTML, mount: mountImage, nav: 'image-gen' },
+  '/revision':  { html: revisionHTML, mount: mountRevision, nav: 'revision' },
 };
 
 let currentCleanup = null;

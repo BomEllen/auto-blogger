@@ -6,6 +6,11 @@ primary_region = 'nrt'
 [env]
   NODE_ENV = 'production'
   GEMINI_MODEL = 'gemini-2.5-flash'
+  DATA_DIR = '/data'
+
+[mounts]
+  source = 'revisions_data'
+  destination = '/data'
 
 [http_service]
   internal_port = 4000

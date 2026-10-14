@@ -7,7 +7,7 @@ console.log(`[config] Gemini 모델: ${GEMINI_MODEL}`);
 
 const app = express();
 
-app.use(express.json());
+app.use(express.json({ limit: '5mb' })); // 퇴고 학습 쌍(원본+최종본 여러 건)이 기본 100kb를 넘을 수 있어 상향
 
 app.use((req, _res, next) => {
   if (req.path.startsWith('/api')) console.log(`[${req.method}] ${req.path}`);
@@ -18,6 +18,7 @@ app.use('/api', require('./routes/review-blog'));
 app.use('/api', require('./routes/info-blog'));
 app.use('/api', require('./routes/title-gen'));
 app.use('/api', require('./routes/image-gen'));
+app.use('/api', require('./routes/revision'));
 
 app.use(express.static(path.join(__dirname, 'public')));
 

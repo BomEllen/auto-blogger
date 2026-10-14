@@ -345,6 +345,19 @@ export function getHTML() {
             <div class="result-label-row"><span class="result-label">본문</span><span class="result-hint">사진은 미리보기로 표시 · 복사하면 [사진N] 위치 마커가 포함돼요</span></div>
             <div class="result-body-box" id="bodyOutput" contenteditable="true" spellcheck="false"></div>
           </div>
+
+          <div class="result-section ib-learning-section" id="hmLearningSection">
+            <div class="result-label-row">
+              <span class="result-label">퇴고 학습용 저장</span>
+              <span class="result-hint">네이버에 실제로 올린 최종본을 붙여넣으면 가이드 개선에 쓰여요 (선택)</span>
+            </div>
+            <textarea id="hmFinalDraft" class="ib-textarea" rows="8" placeholder="실제로 올린 최종 본문을 통째로 붙여넣어주세요"></textarea>
+            <input type="text" id="hmRevisionMemo" class="ib-input" placeholder="수정 메모 한 줄 (예: 총평에 몰려있던 내용을 섹션별로 분산)" />
+            <div class="ib-learning-actions">
+              <button type="button" class="btn-ib-save-learning" id="hmSaveLearningBtn">학습용으로 저장</button>
+              <span class="ib-learning-result hidden" id="hmLearningResult"></span>
+            </div>
+          </div>
         </section>
 
       </div><!-- /main-steps -->
@@ -365,6 +378,8 @@ export function mount() {
   let connectedApiKey = '';
   let rawBodyText = '';
   let formattedBodyHtml = '';
+  let lastGenerated = null; // { title, body, placeName, category } — AI 원본 그대로, 사용자 편집 영향 안 받음
+  let lastPlaceInfo = { name: '', category: '' };
   let dragSrcIndex = null;
   let dragSrcSection = null;
   let lightboxObjectUrl = null;
@@ -1062,6 +1077,7 @@ export function mount() {
   document.getElementById('generateBtn').addEventListener('click', async () => {
     const info = collectFormData();
     if (!info.name || !info.location) { await showAlert('장소명과 위치는 필수 입력 항목이에요!'); return; }
+    lastPlaceInfo = { name: info.name, category: selectedCategory };
     const totalPhotos = sections.reduce((sum, s) => sum + s.photos.length, 0);
     if (totalPhotos === 0) { await showAlert('리뷰 사진을 최소 1장 이상 업로드해주세요!'); return; }
     if (totalPhotos < 30) {
@@ -1160,6 +1176,16 @@ export function mount() {
     document.getElementById('bodyOutput').innerHTML = buildBodyHtml(formattedBodyHtml);
     resultCard.classList.remove('hidden');
     resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    lastGenerated = { title: r.title || '', body: rawBodyText, placeName: lastPlaceInfo.name, category: lastPlaceInfo.category };
+    const hmFinalDraft = document.getElementById('hmFinalDraft');
+    const hmRevisionMemo = document.getElementById('hmRevisionMemo');
+    const hmLearningResult = document.getElementById('hmLearningResult');
+    const hmSaveLearningBtn = document.getElementById('hmSaveLearningBtn');
+    if (hmFinalDraft) hmFinalDraft.value = '';
+    if (hmRevisionMemo) hmRevisionMemo.value = '';
+    if (hmLearningResult) hmLearningResult.classList.add('hidden');
+    if (hmSaveLearningBtn) hmSaveLearningBtn.disabled = false;
   }
 
   /* ── 복사 ── */
@@ -1174,6 +1200,40 @@ export function mount() {
   document.getElementById('copyAll').addEventListener('click', () => {
     const title = document.getElementById('titleOutput').textContent;
     copyText(`${title}\n\n${rawBodyText}`, '전체 글이');
+  });
+
+  document.getElementById('hmSaveLearningBtn').addEventListener('click', async () => {
+    const hmFinalDraft = document.getElementById('hmFinalDraft');
+    const hmRevisionMemo = document.getElementById('hmRevisionMemo');
+    const hmLearningResult = document.getElementById('hmLearningResult');
+    const hmSaveLearningBtn = document.getElementById('hmSaveLearningBtn');
+
+    const final = hmFinalDraft.value.trim();
+    if (!final) { await showAlert('실제로 올린 최종본을 붙여넣어주세요.'); return; }
+    if (!lastGenerated?.body) { await showAlert('저장할 생성 결과가 없어요.'); return; }
+
+    hmSaveLearningBtn.disabled = true;
+    try {
+      const res = await fetch('/api/revisions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          blogType: 'review',
+          title: lastGenerated.title,
+          subtitle: `${lastGenerated.placeName}${lastGenerated.category ? ` (${lastGenerated.category})` : ''}`,
+          memo: hmRevisionMemo.value.trim(),
+          original: lastGenerated.body,
+          final,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '저장에 실패했어요.');
+      hmLearningResult.textContent = '저장됐어요. 퇴고 학습 페이지에서 확인할 수 있어요.';
+      hmLearningResult.classList.remove('hidden');
+    } catch (err) {
+      await showAlert(err.message);
+      hmSaveLearningBtn.disabled = false;
+    }
   });
 
   /* ── 스티키 헤더 스크롤 ── */
