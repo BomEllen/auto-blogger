@@ -16,7 +16,7 @@
 |---|---|---|---|
 | 리뷰 블로그 (`찍기만 해!` 메인) | `public/pages/HomePage.js` | `routes/review-blog.js` (`/api/verify-key`, `/api/extract-info`, `/api/generate`) | `prompts/review-blog-guide.md`, `prompts/style-samples.txt` |
 | 제목생성/유틸 | `public/pages/TitleGenPage.js` | `routes/title-gen.js` (`/api/generate-title`, `/api/generate-hashtags`, `/api/improve-section`, `/api/describe-photo`, `/api/research-blog`) | `prompts/review-blog-guide.md` (review-blog와 각자 독립적으로 로드 — 서로 참조하지 않음) |
-| 정보성 블로그 | `public/pages/InfoBlogPage.js` | `routes/info-blog.js` (`/api/generate-info-blog`) | `prompts/info-blog-guide.md` |
+| 정보성 블로그 | `public/pages/InfoBlogPage.js` | `routes/info-blog.js` (`/api/generate-info-blog`) | `prompts/info-blog-guide.md`, `prompts/info-blog-examples.md` (예시 글, `=====`로 구분, `{{INFO_BLOG_EXAMPLES}}` 자리표시자로 가이드에 주입됨) |
 | 이미지 생성/편집 | `public/pages/ImageGenPage.js` | `routes/image-gen.js` (`/api/generate-image`, `/api/edit-image`) | 없음 (코드 내 상수, OpenAI `gpt-image-1`) |
 | 퇴고 학습 (AI 원본 ↔ 실제 올린 최종본 분석) | `public/pages/RevisionPage.js` (목록·분석·정리·내보내기/가져오기), 저장 UI는 `InfoBlogPage.js`/`HomePage.js` 결과 화면 하단 | `routes/revision.js` (`/api/revisions` CRUD, `/api/revisions/analyze`, `/api/revisions/purge`, `/api/revisions/export`, `/api/revisions/import`) | `prompts/revision-analysis-guide.md` |
 
@@ -33,6 +33,7 @@
 
 - "글 문체·톤을 바꿔줘" → 리뷰면 `prompts/review-blog-guide.md`, 정보성이면 `prompts/info-blog-guide.md`
 - "리뷰 예시 글(샘플)을 바꿔줘" → `prompts/style-samples.txt`
+- "정보성 블로그 예시 글을 바꿔줘/추가해줘" → `prompts/info-blog-examples.md` (글 사이는 `=====`로 구분, 빈 placeholder는 `(여기에`로 시작해서 자동 무시됨)
 - "타임아웃/재시도/폴백 로직을 바꿔줘" → `lib/ai.js`
 - "사진 업로드 개수·용량 제한을 바꿔줘" → `lib/upload.js`
 - "이 API 엔드포인트 동작을 바꿔줘" → 위 표에서 해당 기능의 `routes/*.js`

@@ -98,9 +98,20 @@ function checkInfoBlogWarnings(body, affiliateLinks) {
   return warnings;
 }
 
+let INFO_BLOG_EXAMPLES = '';
+try {
+  const raw = fs.readFileSync(path.join(__dirname, '../prompts/info-blog-examples.md'), 'utf-8').trim();
+  // 안내 헤더와 빈 예시 placeholder는 제외하고 실제 글만 추출
+  const blocks = raw.split('\n=====\n').map(b => b.trim()).filter(b => b && !b.startsWith('아래는 실제') && !b.startsWith('(여기에'));
+  if (blocks.length > 0) INFO_BLOG_EXAMPLES = blocks.join('\n\n=====\n\n');
+} catch {
+  // 파일 없으면 무시
+}
+
 let INFO_BLOG_GUIDE = '';
 try {
   INFO_BLOG_GUIDE = fs.readFileSync(path.join(__dirname, '../prompts/info-blog-guide.md'), 'utf-8').trim();
+  INFO_BLOG_GUIDE = INFO_BLOG_GUIDE.replace('{{INFO_BLOG_EXAMPLES}}', INFO_BLOG_EXAMPLES);
 } catch {
   // 파일 없으면 무시
 }

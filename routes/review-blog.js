@@ -14,7 +14,7 @@ let STYLE_SAMPLES = '';
 try {
   const raw = fs.readFileSync(path.join(__dirname, '../prompts/style-samples.txt'), 'utf-8').trim();
   // 안내 헤더와 빈 예시 placeholder는 제외하고 실제 글만 추출
-  const blocks = raw.split('=====').map(b => b.trim()).filter(b => b && !b.startsWith('아래 글들을') && !b.startsWith('(여기에'));
+  const blocks = raw.split('\n=====\n').map(b => b.trim()).filter(b => b && !b.startsWith('아래 글들을') && !b.startsWith('(여기에'));
   if (blocks.length > 0) STYLE_SAMPLES = blocks.join('\n\n=====\n\n');
 } catch {
   // 파일 없으면 무시
