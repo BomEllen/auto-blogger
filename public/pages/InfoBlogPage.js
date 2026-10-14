@@ -1,4 +1,4 @@
-import { copyText, copyHtml, showAlert } from '../utils.js';
+import { copyText, copyHtml, showAlert, showConfirm } from '../utils.js';
 
 const FIELD_MAP = {
   '핵심 키워드': 'mainKeyword',
@@ -131,6 +131,10 @@ export function getHTML() {
 
       <!-- 입력 폼 -->
       <section class="card ib-card">
+        <button class="btn-reset-draft" id="ibResetDraftBtn" title="입력한 내용과 사진을 모두 지워요">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+          초기화
+        </button>
         <h2 class="tg-card-title">글 정보 입력</h2>
 
         <!-- 프로젝트 결과 붙여넣기 -->
@@ -369,14 +373,15 @@ export function mount() {
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
       </button>
     `;
-    row.querySelector('.ib-link-site').addEventListener('input', (e) => { affiliateLinks[idx].site = e.target.value; });
-    row.querySelector('.ib-link-url').addEventListener('input', (e) => { affiliateLinks[idx].url = e.target.value; });
-    row.querySelector('.ib-link-anchor').addEventListener('change', (e) => { affiliateLinks[idx].anchor = e.target.value; });
-    row.querySelector('.ib-link-label').addEventListener('input', (e) => { affiliateLinks[idx].label = e.target.value; });
-    row.querySelector('.ib-link-reason').addEventListener('input', (e) => { affiliateLinks[idx].reason = e.target.value; });
+    row.querySelector('.ib-link-site').addEventListener('input', (e) => { affiliateLinks[idx].site = e.target.value; scheduleSaveDraft(); });
+    row.querySelector('.ib-link-url').addEventListener('input', (e) => { affiliateLinks[idx].url = e.target.value; scheduleSaveDraft(); });
+    row.querySelector('.ib-link-anchor').addEventListener('change', (e) => { affiliateLinks[idx].anchor = e.target.value; scheduleSaveDraft(); });
+    row.querySelector('.ib-link-label').addEventListener('input', (e) => { affiliateLinks[idx].label = e.target.value; scheduleSaveDraft(); });
+    row.querySelector('.ib-link-reason').addEventListener('input', (e) => { affiliateLinks[idx].reason = e.target.value; scheduleSaveDraft(); });
     row.querySelector('.ib-link-del').addEventListener('click', () => {
       affiliateLinks.splice(idx, 1);
       renderAffiliateLinkRows();
+      scheduleSaveDraft();
     });
     return row;
   }
@@ -391,6 +396,7 @@ export function mount() {
   ibAddLinkBtn.addEventListener('click', () => {
     affiliateLinks.push({ site: '', url: '', anchor: '표내부', label: '' });
     renderAffiliateLinkRows();
+    scheduleSaveDraft();
   });
 
   const ibPasteInput = document.getElementById('ibPasteInput');
@@ -478,6 +484,151 @@ export function mount() {
 
   let lastGenerated = null; // { title, body, mainKeyword, contentType } — AI 원본 그대로, 사용자 편집 영향 안 받음
 
+  /* ── 임시저장 (IndexedDB) ── */
+  const DRAFT_DB_NAME = 'infoBlogDraft';
+  const DRAFT_STORE = 'draft';
+  const DRAFT_KEY = 'current';
+
+  function openDraftDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DRAFT_DB_NAME, 1);
+      req.onupgradeneeded = () => { req.result.createObjectStore(DRAFT_STORE); };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function saveDraftToDB(draft) {
+    try {
+      const db = await openDraftDB();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(DRAFT_STORE, 'readwrite');
+        tx.objectStore(DRAFT_STORE).put(draft, DRAFT_KEY);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+      db.close();
+    } catch (err) {
+      console.warn('[draft] 저장 실패:', err.message);
+    }
+  }
+
+  async function loadDraftFromDB() {
+    try {
+      const db = await openDraftDB();
+      const draft = await new Promise((resolve, reject) => {
+        const tx = db.transaction(DRAFT_STORE, 'readonly');
+        const req = tx.objectStore(DRAFT_STORE).get(DRAFT_KEY);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+      db.close();
+      return draft || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function clearDraftDB() {
+    try {
+      const db = await openDraftDB();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(DRAFT_STORE, 'readwrite');
+        tx.objectStore(DRAFT_STORE).delete(DRAFT_KEY);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+      db.close();
+    } catch { /* 무시 */ }
+  }
+
+  function buildDraftSnapshot() {
+    return {
+      pasteInput: ibPasteInput.value,
+      mainKeyword: ibMainKeyword.value,
+      subKeywords: ibSubKeywords.value,
+      readerProfile: ibReaderProfile.value,
+      searchTopics: ibSearchTopics.value,
+      actualInfo: ibActualInfo.value,
+      emphasizeContent: ibEmphasizeContent.value,
+      contentType: getContentType(),
+      comparisonDesign: ibComparisonDesign.value,
+      verifiedPrices: document.getElementById('ibVerifiedPrices').value,
+      customDirectives: ibCustomDirectives.value,
+      affiliateLinks,
+      refLinks: ibRefLinks.value,
+      refFiles: ibRefFiles,
+    };
+  }
+
+  let draftSaveTimer = null;
+  function scheduleSaveDraft() {
+    clearTimeout(draftSaveTimer);
+    draftSaveTimer = setTimeout(() => { saveDraftToDB(buildDraftSnapshot()); }, 600);
+  }
+
+  async function restoreDraftOrInit() {
+    const draft = await loadDraftFromDB();
+    if (!draft) return;
+    ibPasteInput.value = draft.pasteInput || '';
+    ibMainKeyword.value = draft.mainKeyword || '';
+    ibSubKeywords.value = draft.subKeywords || '';
+    ibReaderProfile.value = draft.readerProfile || '';
+    ibSearchTopics.value = draft.searchTopics || '';
+    ibActualInfo.value = draft.actualInfo || '';
+    ibCharCount.textContent = ibActualInfo.value.length.toLocaleString();
+    ibEmphasizeContent.value = draft.emphasizeContent || '';
+    if (draft.contentType) {
+      const radio = document.querySelector(`input[name="ibContentType"][value="${draft.contentType}"]`);
+      if (radio) radio.checked = true;
+    }
+    ibComparisonDesign.value = draft.comparisonDesign || '';
+    document.getElementById('ibVerifiedPrices').value = draft.verifiedPrices || '';
+    ibCustomDirectives.value = draft.customDirectives || '';
+    affiliateLinks = draft.affiliateLinks || [];
+    renderAffiliateLinkRows();
+    ibRefLinks.value = draft.refLinks || '';
+    ibRefFiles = (draft.refFiles || []).filter(f => f instanceof Blob);
+    renderRefPreviews();
+  }
+
+  async function resetDraft() {
+    const ok = await showConfirm('입력한 모든 내용과 사진이 삭제돼요.\n초기화할까요?');
+    if (!ok) return;
+    await clearDraftDB();
+    ibPasteInput.value = '';
+    ibMainKeyword.value = '';
+    ibSubKeywords.value = '';
+    ibReaderProfile.value = '';
+    ibSearchTopics.value = '';
+    ibActualInfo.value = '';
+    ibCharCount.textContent = '0';
+    ibEmphasizeContent.value = '';
+    const defaultTypeRadio = document.querySelector('input[name="ibContentType"][value="정보형"]');
+    if (defaultTypeRadio) defaultTypeRadio.checked = true;
+    ibComparisonDesign.value = '';
+    document.getElementById('ibVerifiedPrices').value = '';
+    ibCustomDirectives.value = '';
+    affiliateLinks = [];
+    renderAffiliateLinkRows();
+    ibRefLinks.value = '';
+    ibRefFiles = [];
+    renderRefPreviews();
+    ibResultCard.classList.add('hidden');
+    ibFillResult.classList.add('hidden');
+  }
+
+  document.getElementById('ibResetDraftBtn').addEventListener('click', resetDraft);
+
+  [ibPasteInput, ibMainKeyword, ibSubKeywords, ibReaderProfile, ibSearchTopics, ibActualInfo,
+    ibEmphasizeContent, ibComparisonDesign, document.getElementById('ibVerifiedPrices'),
+    ibCustomDirectives, ibRefLinks].forEach((el) => {
+    el.addEventListener('input', scheduleSaveDraft);
+  });
+  document.getElementById('ibContentTypeGroup').addEventListener('change', scheduleSaveDraft);
+
+  restoreDraftOrInit();
+
   if (apiKey) {
     ibApiConnected.classList.remove('hidden');
     ibMaskedKey.textContent = apiKey.slice(0, 8) + '••••••••••••••••••••' + apiKey.slice(-4);
@@ -502,7 +653,7 @@ export function mount() {
       del.className = 'ib-ref-thumb-del';
       del.title = '삭제';
       del.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>`;
-      del.addEventListener('click', () => { ibRefFiles.splice(i, 1); renderRefPreviews(); });
+      del.addEventListener('click', () => { ibRefFiles.splice(i, 1); renderRefPreviews(); scheduleSaveDraft(); });
       thumb.append(img, del);
       ibRefPreviews.appendChild(thumb);
     });
@@ -515,11 +666,13 @@ export function mount() {
     e.preventDefault(); ibRefUploadZone.classList.remove('drag-over');
     ibRefFiles.push(...Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')));
     renderRefPreviews();
+    scheduleSaveDraft();
   });
   ibRefImageInput.addEventListener('change', () => {
     ibRefFiles.push(...Array.from(ibRefImageInput.files));
     ibRefImageInput.value = '';
     renderRefPreviews();
+    scheduleSaveDraft();
   });
 
   ibGenerateBtn.addEventListener('click', async () => {

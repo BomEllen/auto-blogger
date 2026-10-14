@@ -911,7 +911,7 @@ body {
   display: flex; flex-direction: column; gap: 20px;
 }
 
-.ib-card { display: flex; flex-direction: column; gap: 20px; }
+.ib-card { position: relative; display: flex; flex-direction: column; gap: 20px; }
 
 .ib-field { display: flex; flex-direction: column; gap: 6px; }
 .ib-label { font-size: 14px; font-weight: 700; color: var(--text); }
