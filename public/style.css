@@ -33,6 +33,7 @@ body { padding-top: 52px; }
 
 :root {
   --accent:    #C5E820;
+  --accent-dark: #4F7D0E;
   --text:      #111827;
   --text-2:    #6B7280;
   --glass:     #ffffff;
@@ -648,7 +649,7 @@ body {
 .rv-tabs { display: flex; gap: 6px; }
 .rv-tab {
   padding: 8px 16px; border-radius: 999px; border: 1.5px solid var(--border);
-  background: var(--surface); font-size: 13px; font-weight: 600; color: var(--text-2);
+  background: var(--glass-md); font-size: 13px; font-weight: 600; color: var(--text-2);
   cursor: pointer; transition: border-color 0.15s, background 0.15s, color 0.15s;
 }
 .rv-tab.active { border-color: var(--accent-dark); background: rgba(143,204,42,0.1); color: var(--accent-dark); }
@@ -1084,7 +1085,7 @@ body {
   border: 1.5px dashed var(--border); border-radius: var(--radius-sm);
   padding: 20px; text-align: center; cursor: pointer;
   transition: border-color 0.2s, background 0.2s;
-  font-size: 13px; color: var(--text-sub);
+  font-size: 13px; color: var(--text-2);
 }
 .ib-ref-upload-zone:hover,
 .ib-ref-upload-zone.drag-over { border-color: var(--accent); background: rgba(197,232,32,0.05); }
@@ -1268,20 +1269,20 @@ body {
 .ib-input-sm {
   flex: 1; min-width: 100px;
   padding: 7px 10px; border-radius: var(--radius-sm);
-  border: 1.5px solid var(--border); background: var(--surface);
+  border: 1.5px solid var(--border); background: var(--glass-md);
   font-size: 13px; color: var(--text);
 }
 .ib-input-sm:focus { outline: none; border-color: var(--accent); }
 .ib-select-sm {
   padding: 7px 8px; border-radius: var(--radius-sm);
-  border: 1.5px solid var(--border); background: var(--surface);
+  border: 1.5px solid var(--border); background: var(--glass-md);
   font-size: 13px; color: var(--text); cursor: pointer;
 }
 .ib-select-sm:focus { outline: none; border-color: var(--accent); }
 .ib-link-del {
   display: flex; align-items: center; justify-content: center;
   width: 28px; height: 28px; border-radius: 50%;
-  border: 1.5px solid var(--border); background: var(--surface);
+  border: 1.5px solid var(--border); background: var(--glass-md);
   color: var(--text-2); cursor: pointer; flex-shrink: 0;
   transition: border-color 0.15s, color 0.15s;
 }
@@ -1299,7 +1300,7 @@ body {
 .ib-title-card {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 14px; border-radius: var(--radius-sm);
-  border: 1.5px solid var(--border); background: var(--surface);
+  border: 1.5px solid var(--border); background: var(--glass-md);
   cursor: pointer; transition: border-color 0.15s, background 0.15s;
 }
 .ib-title-card input[type="radio"] { display: none; }
@@ -1315,7 +1316,7 @@ body {
   border: 1.5px dashed var(--border);
   border-radius: var(--radius);
   padding: 0;
-  background: var(--surface);
+  background: var(--glass-md);
 }
 .ib-paste-summary {
   padding: 12px 16px;
